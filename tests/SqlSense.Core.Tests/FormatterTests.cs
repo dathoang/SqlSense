@@ -160,6 +160,10 @@ namespace SqlSense.Core.Tests
         [InlineData("select top 10 a, top (5) b from t; select distinct a as x, (select max(b) from u where u.id = t.id) as m from t")]
         [InlineData("if @a = 1 select a from t else begin update t set a = 1 where b = 2; delete from t where c = 3 end")]
         [InlineData("with x as (select a from t) insert into u (a) select a from x")]
+        [InlineData("select distinct top (10) percent with ties a, b from t; select top 5 * from t")]
+        [InlineData("create table dbo.T (Id int not null constraint PK_T primary key clustered, Ref int null references dbo.U (Id), Code char(2) not null default 'x' check (Code <> ''), constraint UQ_T unique (Code, Ref), constraint FK_T foreign key (Ref, Id) references dbo.U (A, B), index IX_T nonclustered (Ref))")]
+        [InlineData("if @@ROWCOUNT = 0 and @@trancount > 0 select case x when 1 then 'a' when 2 then 'b' end, case when y = 1 then 'c' else 'd' end from t")]
+        [InlineData("select a /* one\n     two\n     three */ from t\ngo\n\n\nselect 1")]
         public void Formatting_never_changes_tokens_and_is_idempotent(string sql)
         {
             foreach (var f in new[] { _f, new SqlFormatter(PromptLike()) })
@@ -186,7 +190,98 @@ namespace SqlSense.Core.Tests
             CollapseDdlShorterThan = 75,
             DdlParenStyle = ParenthesisStyle.ExpandedToStatement,
             SpaceInsideInLists = true,
+            BreakAfterDistinctTop = true,
+            DdlConstraintsOnNewLines = true,
+            ConstraintColumnsOnNewLines = ListWrap.IfMultipleItems,
+            GlobalVariableCase = KeywordCasing.Lower,
+            FirstWhenOnNewLine = CaseWhenPlacement.IfInputExpression,
+            AlignMultilineComments = true,
+            KeepBlankLinesAfterGo = false,
         };
+
+        [Fact]
+        public void New_line_after_distinct_and_top()
+        {
+            var o = new FormatOptions { NewLine = "\n", BreakAfterDistinctTop = true };
+            Assert.Equal("SELECT DISTINCT TOP (10) PERCENT\n       a,\n       b\nFROM t", Fmt(o, "select distinct top (10) percent a, b from t"));
+            Assert.Equal("SELECT a\nFROM t", Fmt(o, "select a from t"));
+        }
+
+        [Fact]
+        public void Column_constraints_on_new_lines()
+        {
+            var o = new FormatOptions
+            {
+                NewLine = "\n",
+                DdlConstraintsOnNewLines = true,
+                ConstraintColumnsOnNewLines = ListWrap.IfMultipleItems,
+                DdlParenStyle = ParenthesisStyle.ExpandedToStatement,
+            };
+            var expected =
+                "CREATE TABLE dbo.T\n" +
+                "(\n" +
+                "    Id int NOT NULL\n" +
+                "        CONSTRAINT PK_T PRIMARY KEY,\n" +
+                "    Ref int NULL\n" +
+                "        REFERENCES dbo.U (Id),\n" +
+                "    CONSTRAINT FK_T FOREIGN KEY\n" +
+                "    (\n" +
+                "        Ref,\n" +
+                "        Id\n" +
+                "    ) REFERENCES dbo.U\n" +
+                "    (\n" +
+                "        A,\n" +
+                "        B\n" +
+                "    )\n" +
+                ");";
+            Assert.Equal(expected, Fmt(o, "create table dbo.T (Id int not null constraint PK_T primary key, Ref int null references dbo.U (Id), constraint FK_T foreign key (Ref, Id) references dbo.U (A, B));"));
+        }
+
+        [Fact]
+        public void Global_variable_case()
+        {
+            var o = new FormatOptions { NewLine = "\n", GlobalVariableCase = KeywordCasing.Lower };
+            Assert.Equal("IF @@rowcount = 0\n    PRINT @MyVar", Fmt(o, "if @@ROWCOUNT = 0 print @MyVar"));
+        }
+
+        [Fact]
+        public void Object_definition_case_uses_the_schema()
+        {
+            var o = new FormatOptions { NewLine = "\n", UseObjectDefinitionCase = true };
+            var r = new SqlFormatter(o, TestSchema.Create()).Format("select c.customerid, c.NAME, x.whatever from DBO.customers c");
+            Assert.True(r.Success, r.Error);
+            Assert.Equal("SELECT c.CustomerID,\n       c.Name,\n       x.whatever\nFROM dbo.Customers c", r.Text);
+        }
+
+        [Fact]
+        public void First_when_placement()
+        {
+            var o = new FormatOptions { NewLine = "\n", FirstWhenOnNewLine = CaseWhenPlacement.IfInputExpression };
+            Assert.Equal(
+                "SELECT CASE WHEN a = 1 THEN 'x'\n" +
+                "            WHEN a = 2 THEN 'y'\n" +
+                "            ELSE 'z'\n" +
+                "       END,\n" +
+                "       CASE a\n" +
+                "           WHEN 1 THEN 'x'\n" +
+                "       END\n" +
+                "FROM t",
+                Fmt(o, "select case when a = 1 then 'x' when a = 2 then 'y' else 'z' end, case a when 1 then 'x' end from t"));
+        }
+
+        [Fact]
+        public void Multiline_comments_move_with_their_first_line()
+        {
+            var o = new FormatOptions { NewLine = "\n", AlignMultilineComments = true };
+            Assert.Equal("BEGIN\n    /* one\n     * two\n     */\n    SELECT 1\nEND", Fmt(o, "begin\n/* one\n * two\n */\nselect 1 end"));
+        }
+
+        [Fact]
+        public void Blank_lines_after_go_can_be_removed()
+        {
+            var o = new FormatOptions { NewLine = "\n", KeepBlankLinesAfterGo = false };
+            Assert.Equal("SELECT 1\nGO\nSELECT 2\n\nSELECT 3", Fmt(o, "select 1\ngo\n\n\nselect 2\n\nselect 3"));
+        }
 
         private static string Fmt(FormatOptions o, string sql)
         {

@@ -38,7 +38,30 @@ namespace SqlSense.Core.Tests
             Assert.Equal(ParenthesisStyle.ExpandedToStatement, o.DdlParenStyle);
             Assert.True(o.IndentJoins);
             Assert.True(o.SpaceInsideInLists);
-            Assert.Equal(new[] { "whitespace.newLines.preserveExistingEmptyLinesAfterBatchSeparator = false" }, r.Ignored);
+            Assert.False(o.KeepBlankLinesAfterGo);
+            Assert.Empty(r.Ignored);
+        }
+
+        [Fact]
+        public void Maps_layout_settings()
+        {
+            var r = SqlPromptStyle.Import(@"{
+  ""whitespace"": { ""newLines"": { ""alignMultilineCommentsMatchingPatterns"": true } },
+  ""casing"": { ""globalVariables"": ""lowercase"", ""useObjectDefinitionCase"": true },
+  ""dml"": { ""addNewLineAfterDistinctAndTopClauses"": true },
+  ""ddl"": { ""placeConstraintsOnNewLines"": true, ""placeConstraintColumnsOnNewLines"": ""ifLongerOrMultipleColumns"" },
+  ""caseExpressions"": { ""placeFirstWhenOnNewLine"": ""ifInputExpression"" },
+  ""variables"": { ""placeEqualsSignOnNewLine"": true }
+}", new FormatOptions());
+            var o = r.Options;
+            Assert.True(o.AlignMultilineComments);
+            Assert.Equal(KeywordCasing.Lower, o.GlobalVariableCase);
+            Assert.True(o.UseObjectDefinitionCase);
+            Assert.True(o.BreakAfterDistinctTop);
+            Assert.True(o.DdlConstraintsOnNewLines);
+            Assert.Equal(ListWrap.IfMultipleItems, o.ConstraintColumnsOnNewLines);
+            Assert.Equal(CaseWhenPlacement.IfInputExpression, o.FirstWhenOnNewLine);
+            Assert.Equal(new[] { "variables.placeEqualsSignOnNewLine = true" }, r.Ignored);
         }
 
         [Fact]

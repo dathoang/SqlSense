@@ -109,7 +109,12 @@ namespace SqlSense.Editor
             }
 
             var original = snapshot.GetText(span);
-            var result = new SqlFormatter(options).Format(original, baseIndent);
+            // Only an already-cached schema: formatting never waits for the database.
+            var schema = options.UseObjectDefinitionCase
+                ? SchemaService.Get(SsmsConnection.GetActive(), SqlDocument.DatabaseFromUse(snapshot.GetText(), span.Start))
+                : null;
+            if (options.UseObjectDefinitionCase && schema == null) Log.Info("Format: object definition case skipped (schema not loaded yet).");
+            var result = new SqlFormatter(options, schema).Format(original, baseIndent);
             if (!result.Success)
             {
                 Status("SqlSense: " + result.Error);

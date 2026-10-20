@@ -16,6 +16,25 @@ namespace SqlSense.Core.Formatting
         ExpandedToStatement,
     }
 
+    public enum ListWrap
+    {
+        Never,
+        Always,
+        IfMultipleItems,
+    }
+
+    public enum CaseWhenPlacement
+    {
+        /// <summary>Every WHEN starts a new line.</summary>
+        Always,
+
+        /// <summary>The first WHEN stays on the CASE line; the others line up under it.</summary>
+        Never,
+
+        /// <summary>New line for "CASE x WHEN …", same line for "CASE WHEN …".</summary>
+        IfInputExpression,
+    }
+
     public sealed class FormatOptions
     {
         public int IndentSize { get; set; } = 4;
@@ -64,6 +83,29 @@ namespace SqlSense.Core.Formatting
 
         /// <summary>Write IN lists as "IN ( 1, 2 )".</summary>
         public bool SpaceInsideInLists { get; set; }
+
+        /// <summary>The first select item goes on a new line after DISTINCT / TOP (n).</summary>
+        public bool BreakAfterDistinctTop { get; set; }
+
+        /// <summary>Column constraints (CONSTRAINT, PRIMARY KEY, DEFAULT, REFERENCES, …) in CREATE TABLE get their own line.</summary>
+        public bool DdlConstraintsOnNewLines { get; set; }
+
+        /// <summary>Columns of PRIMARY KEY / UNIQUE / REFERENCES / INDEX ( … ) inside CREATE TABLE go one per line.</summary>
+        public ListWrap ConstraintColumnsOnNewLines { get; set; } = ListWrap.Never;
+
+        /// <summary>Case of system functions such as @@ROWCOUNT.</summary>
+        public KeywordCasing GlobalVariableCase { get; set; } = KeywordCasing.AsIs;
+
+        /// <summary>Write table, view, routine, schema and column names as they are defined (needs the schema).</summary>
+        public bool UseObjectDefinitionCase { get; set; }
+
+        public CaseWhenPlacement FirstWhenOnNewLine { get; set; } = CaseWhenPlacement.Always;
+
+        /// <summary>Shift the continuation lines of a /* … */ comment along with its first line.</summary>
+        public bool AlignMultilineComments { get; set; }
+
+        /// <summary>Keep blank lines that follow GO (false removes them).</summary>
+        public bool KeepBlankLinesAfterGo { get; set; } = true;
 
         public string NewLine { get; set; } = "\r\n";
 

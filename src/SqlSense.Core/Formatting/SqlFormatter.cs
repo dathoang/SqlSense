@@ -5,6 +5,7 @@ using System.Text;
 using SqlSense.Core.Analysis;
 using SqlSense.Core.Language;
 using SqlSense.Core.Lexing;
+using SqlSense.Core.Schema;
 
 namespace SqlSense.Core.Formatting
 {
@@ -67,11 +68,50 @@ namespace SqlSense.Core.Formatting
             "SELECT", "GROUP BY", "ORDER BY", "SET", "FROM", "VALUES", "OUTPUT", "DECLARE", "PARTITION BY",
         };
 
-        private readonly FormatOptions _o;
+        // System functions spelled like variables; T-SQL resolves them case-insensitively.
+        private static readonly HashSet<string> GlobalVariables = new HashSet<string>(Ci)
+        {
+            "@@CONNECTIONS", "@@CPU_BUSY", "@@CURSOR_ROWS", "@@DATEFIRST", "@@DBTS", "@@ERROR", "@@FETCH_STATUS", "@@IDENTITY",
+            "@@IDLE", "@@IO_BUSY", "@@LANGID", "@@LANGUAGE", "@@LOCK_TIMEOUT", "@@MAX_CONNECTIONS", "@@MAX_PRECISION",
+            "@@NESTLEVEL", "@@OPTIONS", "@@PACK_RECEIVED", "@@PACK_SENT", "@@PACKET_ERRORS", "@@PROCID", "@@REMSERVER",
+            "@@ROWCOUNT", "@@SERVERNAME", "@@SERVICENAME", "@@SPID", "@@TEXTSIZE", "@@TIMETICKS", "@@TOTAL_ERRORS",
+            "@@TOTAL_READ", "@@TOTAL_WRITE", "@@TRANCOUNT", "@@VERSION",
+        };
 
-        public SqlFormatter(FormatOptions options = null)
+        private static readonly HashSet<string> ConstraintStarters = new HashSet<string>(Ci)
+        {
+            "CONSTRAINT", "PRIMARY", "UNIQUE", "CHECK", "DEFAULT", "REFERENCES", "FOREIGN", "INDEX",
+        };
+
+        private readonly FormatOptions _o;
+        private readonly Dictionary<string, string> _names;
+
+        /// <param name="schema">Optional; supplies the defined spelling of names for <see cref="FormatOptions.UseObjectDefinitionCase"/>.</param>
+        public SqlFormatter(FormatOptions options = null, DatabaseSchema schema = null)
         {
             _o = options ?? new FormatOptions();
+            if (_o.UseObjectDefinitionCase && schema != null) _names = DefinedNames(schema);
+        }
+
+        /// <summary>Case-insensitive name → defined spelling; names defined with two spellings are left out.</summary>
+        private static Dictionary<string, string> DefinedNames(DatabaseSchema schema)
+        {
+            var names = new Dictionary<string, string>(Ci);
+            var clash = new HashSet<string>(Ci);
+            void Add(string name)
+            {
+                if (string.IsNullOrEmpty(name) || clash.Contains(name)) return;
+                if (!names.TryGetValue(name, out var existing)) names[name] = name;
+                else if (existing != name) { names.Remove(name); clash.Add(name); }
+            }
+            foreach (var s in schema.Schemas) Add(s);
+            foreach (var o in schema.Objects)
+            {
+                Add(o.Schema);
+                Add(o.Name);
+                foreach (var c in o.Columns) Add(c.Name);
+            }
+            return names;
         }
 
         public FormatResult Format(string sql, string baseIndent = "")
@@ -83,7 +123,7 @@ namespace SqlSense.Core.Formatting
             string output;
             try
             {
-                output = new Run(_o, sql, baseIndent ?? string.Empty).Execute();
+                output = new Run(_o, sql, baseIndent ?? string.Empty, _names).Execute();
             }
             catch (Exception ex)
             {
@@ -108,13 +148,19 @@ namespace SqlSense.Core.Formatting
                 if (x.Kind == TokenKind.Keyword || x.Kind == TokenKind.Identifier || x.Kind == TokenKind.Go)
                     same = y.Kind == x.Kind && string.Equals(x.Text, y.Text, StringComparison.OrdinalIgnoreCase);
                 else if (x.Kind == TokenKind.Comment)
-                    same = y.Kind == TokenKind.Comment && x.Text.TrimEnd() == y.Text.TrimEnd();
+                    same = y.Kind == TokenKind.Comment && CommentContent(x.Text) == CommentContent(y.Text);
+                else if (x.Kind == TokenKind.Variable && GlobalVariables.Contains(x.Text))
+                    same = y.Kind == x.Kind && string.Equals(x.Text, y.Text, StringComparison.OrdinalIgnoreCase);
                 else
                     same = x.Text == y.Text;
                 if (!same) return $"token '{x.Text}' became '{y.Text}'";
             }
             return a.Count == b.Count ? null : $"token count changed from {a.Count} to {b.Count}";
         }
+
+        /// <summary>A comment's text without the indentation of its lines, which the formatter may change.</summary>
+        private static string CommentContent(string text) =>
+            string.Join("\n", text.Split('\n').Select(l => l.Trim(' ', '\t', '\r'))).TrimEnd('\n');
 
         // =====================================================================
 
@@ -146,6 +192,10 @@ namespace SqlSense.Core.Formatting
             public int StatementStartSig;
             public int AlignGroup;
             public bool SpaceInside;
+            public int BreakBeforeSig = -1; // first select item after DISTINCT / TOP
+            public int WhenColumn;
+            public bool FirstWhenInline;
+            public bool SeenWhen;
 
             public bool IsStatementLevel => Kind == FrameKind.Root || Kind == FrameKind.Block || Kind == FrameKind.Subquery;
         }
@@ -164,6 +214,8 @@ namespace SqlSense.Core.Formatting
             private int _cur;             // significant index of the token being written
             private int _compactEnd = -1; // last significant index of the region kept on one line
             private int _groups;
+            private readonly Dictionary<string, string> _names;
+            private bool _afterGo;
             private readonly HashSet<int> _statementStarts = new HashSet<int>();
             private readonly Stack<Frame> _frames = new Stack<Frame>();
             private readonly StringBuilder _sb = new StringBuilder();
@@ -175,9 +227,10 @@ namespace SqlSense.Core.Formatting
             private SqlToken _prevSig;
             private SqlToken _prevWritten;
 
-            public Run(FormatOptions o, string sql, string baseIndent)
+            public Run(FormatOptions o, string sql, string baseIndent, Dictionary<string, string> names)
             {
                 _o = o;
+                _names = names;
                 _sql = sql;
                 _baseIndent = baseIndent;
                 _all = new List<SqlToken>();
@@ -218,6 +271,7 @@ namespace SqlSense.Core.Formatting
                     _cur = s;
                     if (!ShouldSkip(t, s)) Token(t, s, _nlBefore[k]);
                     if (_compactEnd >= 0 && s >= _compactEnd) _compactEnd = -1;
+                    _afterGo = t.Kind == TokenKind.Go;
                 }
 
                 var text = TrimTrailingSpaces(ResolveAlignment(_sb.ToString()));
@@ -297,6 +351,13 @@ namespace SqlSense.Core.Formatting
                     return;
                 }
 
+                if (top.IsStatementLevel && s == top.BreakBeforeSig)
+                {
+                    // SELECT DISTINCT / TOP (n) ⏎ first item
+                    top.BreakBeforeSig = -1;
+                    NewLineAt(top.ItemColumn, false);
+                }
+
                 // ----- punctuation -----
                 if (t.Text == ";")
                 {
@@ -320,13 +381,32 @@ namespace SqlSense.Core.Formatting
                     }
                     var column = _col;
                     Write(Case(t, s));
-                    _frames.Push(new Frame { Kind = FrameKind.Case, CaseColumn = column });
+                    var next = Sig(s + 1);
+                    var hasInput = next != null && !next.Is("WHEN");
+                    _frames.Push(new Frame
+                    {
+                        Kind = FrameKind.Case,
+                        CaseColumn = column,
+                        WhenColumn = column + _o.IndentSize,
+                        FirstWhenInline = _o.FirstWhenOnNewLine == CaseWhenPlacement.Never
+                                          || _o.FirstWhenOnNewLine == CaseWhenPlacement.IfInputExpression && !hasInput,
+                    });
                     Done(t);
                     return;
                 }
                 if (top.Kind == FrameKind.Case && (u == "WHEN" || u == "ELSE"))
                 {
-                    NewLineAt(top.CaseColumn + _o.IndentSize, false);
+                    if (!top.SeenWhen && u == "WHEN" && top.FirstWhenInline)
+                    {
+                        // CASE WHEN … : later WHEN / ELSE line up under this one.
+                        SpaceIfNeeded(t, s);
+                        top.WhenColumn = _col;
+                    }
+                    else
+                    {
+                        NewLineAt(top.WhenColumn, false);
+                    }
+                    top.SeenWhen = true;
                     Write(Case(t, s));
                     Done(t);
                     return;
@@ -335,6 +415,15 @@ namespace SqlSense.Core.Formatting
                 {
                     _frames.Pop();
                     NewLineAt(top.CaseColumn, false);
+                    Write(Case(t, s));
+                    Done(t);
+                    return;
+                }
+
+                // ----- CREATE TABLE column constraints -----
+                if (top.Kind == FrameKind.ColumnList && _o.DdlConstraintsOnNewLines && t.Kind == TokenKind.Keyword && StartsColumnConstraint(s))
+                {
+                    NewLineAt(top.Indent + _o.IndentSize, false);
                     Write(Case(t, s));
                     Done(t);
                     return;
@@ -382,6 +471,7 @@ namespace SqlSense.Core.Formatting
                 Write(t.Kind == TokenKind.Identifier && SqlVocabulary.StatementStarters.Contains(t.Text) ? KeywordCase(t.Text) : Case(t, s));
                 if (top.Clause == "SELECT" || top.Clause == "SET" || top.Clause == "DECLARE")
                     top.ItemColumn = _col + 1;
+                top.BreakBeforeSig = u == "SELECT" && _o.BreakAfterDistinctTop ? FirstSelectItem(s) : -1;
 
                 if (u == "IF" || u == "WHILE")
                 {
@@ -540,6 +630,7 @@ namespace SqlSense.Core.Formatting
                 top.Clause = clause;
                 top.AlignGroup = ++_groups;
                 top.ItemColumn = _col + 1;
+                top.BreakBeforeSig = clause == "SELECT" && _o.BreakAfterDistinctTop ? FirstSelectItem(s) : -1;
                 top.InBetween = false;
                 Done(t);
                 return true;
@@ -564,8 +655,9 @@ namespace SqlSense.Core.Formatting
                 var next = Sig(s + 1);
                 var prev = Sig(s - 1);
                 var isSubquery = next != null && (next.Is("SELECT") || next.Is("WITH") && Sig(s + 2) != null && Sig(s + 2).IsName);
-                var isColumnList = !isSubquery && IsColumnDefinitionList(s);
-                if (!InCompact && (isSubquery || isColumnList))
+                var isTableBody = !isSubquery && IsColumnDefinitionList(s);
+                var isColumnList = isTableBody || !isSubquery && Top.Kind == FrameKind.ColumnList && WrapConstraintColumns(s);
+                if (!InCompact && (isSubquery || isTableBody))
                 {
                     var limit = isSubquery ? _o.CollapseSubqueriesShorterThan : _o.CollapseDdlShorterThan;
                     var close = MatchingParen(s);
@@ -574,7 +666,7 @@ namespace SqlSense.Core.Formatting
                 }
                 var style = isSubquery ? _o.SubqueryParenStyle : _o.DdlParenStyle;
                 if ((isSubquery || isColumnList) && style == ParenthesisStyle.ExpandedToStatement && !InCompact)
-                    NewLineAt(_lineIndent, false);
+                    NewLineAt(Top.Kind == FrameKind.ColumnList ? Math.Max(_lineIndent, Top.Indent) : _lineIndent, false); // not at a leading comma
                 else
                     SpaceIfNeeded(t, s);
                 Write("(");
@@ -695,10 +787,11 @@ namespace SqlSense.Core.Formatting
                 {
                     // A trailing comment ("a, -- note") stays at the end of the line it was on.
                     if (_o.AlignComments) Mark(CommentMark, CommentGroup());
-                    Write(" " + text);
+                    Write(" " + ShiftComment(c, text, _col + 1));
                     NewLineAt(pendingIndent, false);
                     _forceNewLine = false;
                     _prevWritten = c;
+                    _afterGo = false;
                     return;
                 }
 
@@ -715,9 +808,36 @@ namespace SqlSense.Core.Formatting
                     if (isLineComment && _o.AlignComments) Mark(CommentMark, CommentGroup());
                     Write(" ");
                 }
-                Write(text);
+                Write(ShiftComment(c, text, _col));
                 _forceNewLine = isLineComment;
                 _prevWritten = c;
+                _afterGo = false;
+            }
+
+            /// <summary>
+            /// Moves the continuation lines of a multi-line block comment by as much as its first line moved,
+            /// so "/* ⏎  * text ⏎  */" keeps its shape.
+            /// </summary>
+            private string ShiftComment(SqlToken c, string text, int newColumn)
+            {
+                if (!_o.AlignMultilineComments || text.IndexOf('\n') < 0) return text;
+                var lineStart = _sql.LastIndexOf('\n', Math.Max(0, c.Start - 1)) + 1;
+                var oldColumn = 0;
+                for (var i = lineStart; i < c.Start; i++) oldColumn += _sql[i] == '\t' ? _o.IndentSize : 1;
+                var delta = newColumn - oldColumn;
+                if (delta == 0) return text;
+
+                var lines = text.Split('\n');
+                for (var i = 1; i < lines.Length; i++)
+                {
+                    var line = lines[i];
+                    var body = line.TrimStart(' ', '\t');
+                    if (body.Length == 0 || body == "\r") continue;
+                    var indent = 0;
+                    foreach (var ch in line.Substring(0, line.Length - body.Length)) indent += ch == '\t' ? _o.IndentSize : 1;
+                    lines[i] = new string(' ', Math.Max(0, indent + delta)) + body;
+                }
+                return string.Join("\n", lines);
             }
 
             /// <summary>Removes the line break just emitted, returning the indent it had.</summary>
@@ -810,7 +930,9 @@ namespace SqlSense.Core.Formatting
                 while (k >= 0 && (_sig[k].IsName || _sig[k].Text == ".")) k--;
                 if (k < 0) return false;
                 var w = _sig[k];
-                if (w.Is("INTO") || w.Is("TABLE") || w.Is("WITH") || w.Is("INSERT") || w.Is("VIEW") || w.Is("ON")) return true;
+                if (w.Is("INTO") || w.Is("TABLE") || w.Is("WITH") || w.Is("INSERT") || w.Is("VIEW") || w.Is("ON")
+                    || w.Is("REFERENCES") || w.Is("INDEX"))
+                    return true;
                 if (w.Text == "," && _frames.Any(f => f.FirstWord == "WITH")) return true;
                 return w.Is("AS") && k + 1 < s - 1; // "AS alias (cols)" in derived tables
             }
@@ -835,7 +957,9 @@ namespace SqlSense.Core.Formatting
                         return Apply(t.Text, _o.FunctionCase);
                     if (SqlVocabulary.IsDataType(t.Text) && IsTypePosition(s)) return Apply(t.Text, _o.DataTypeCase);
                     if (IsSoftKeyword(t, s)) return KeywordCase(t.Text);
+                    if (_names != null && _names.TryGetValue(t.Text, out var defined)) return defined;
                 }
+                if (t.Kind == TokenKind.Variable && GlobalVariables.Contains(t.Text)) return Apply(t.Text, _o.GlobalVariableCase);
                 return t.Text;
             }
 
@@ -923,6 +1047,8 @@ namespace SqlSense.Core.Formatting
                     case "NEXT":
                     case "FIRST":
                         return prev != null && prev.Is("FETCH");
+                    case "TIES":
+                        return prev != null && prev.Is("WITH");
                     case "NOLOCK":
                     case "READPAST":
                     case "UPDLOCK":
@@ -957,6 +1083,7 @@ namespace SqlSense.Core.Formatting
 
             private void NewLineAt(int indent, bool blank, bool allowAtStart = false)
             {
+                if (_afterGo && !_o.KeepBlankLinesAfterGo) blank = false;
                 if (_sb.Length == _baseIndent.Length && _prevWritten == null && !allowAtStart)
                 {
                     // Very first token: stay on the first line.
@@ -1020,6 +1147,81 @@ namespace SqlSense.Core.Formatting
                     lines[i] = cr ? l + "\r" : l;
                 }
                 return string.Join("\n", lines).TrimEnd(' ', '\t', '\r', '\n');
+            }
+
+            // ----- SELECT modifiers and DDL constraints -----
+
+            /// <summary>Index of the first select item when DISTINCT/ALL/TOP (n) [PERCENT] [WITH TIES] precede it, else -1.</summary>
+            private int FirstSelectItem(int select)
+            {
+                var k = select + 1;
+                if (Sig(k) != null && (Sig(k).Is("DISTINCT") || Sig(k).Is("ALL"))) k++;
+                if (Sig(k) != null && Sig(k).Is("TOP"))
+                {
+                    k++;
+                    if (Sig(k) != null && Sig(k).Text == "(")
+                    {
+                        k = MatchingParen(k);
+                        if (k < 0) return -1;
+                    }
+                    k++;
+                    if (Sig(k) != null && Sig(k).Is("PERCENT")) k++;
+                    if (Sig(k) != null && Sig(k).Is("WITH") && Sig(k + 1) != null && Sig(k + 1).Is("TIES")) k += 2;
+                }
+                return k > select + 1 && k < _sig.Count ? k : -1;
+            }
+
+            /// <summary>A keyword that begins a column constraint inside a CREATE TABLE column definition.</summary>
+            private bool StartsColumnConstraint(int s)
+            {
+                var t = _sig[s];
+                if (!ConstraintStarters.Contains(t.Text)) return false;
+                var prev = Sig(s - 1);
+                if (prev == null || prev.Text == "(" || prev.Text == ",") return false; // a table constraint is its own item
+                if (t.Is("CONSTRAINT")) return true;
+                var before = Sig(s - 2);
+                if (before != null && before.Is("CONSTRAINT")) return false;            // CONSTRAINT name PRIMARY KEY
+                // FOREIGN KEY (a) REFERENCES t (b) is one constraint.
+                var depth = 0;
+                for (var k = s - 1; k >= 0; k--)
+                {
+                    var w = _sig[k];
+                    if (w.Text == ")") depth++;
+                    else if (w.Text == "(")
+                    {
+                        if (depth == 0) break;
+                        depth--;
+                    }
+                    else if (depth == 0 && w.Text == ",") break;
+                    else if (depth == 0 && w.Is("FOREIGN")) return false;
+                }
+                return true;
+            }
+
+            /// <summary>PRIMARY KEY / UNIQUE / REFERENCES t / INDEX ix ( … ) inside CREATE TABLE that should go one column per line.</summary>
+            private bool WrapConstraintColumns(int s)
+            {
+                if (_o.ConstraintColumnsOnNewLines == ListWrap.Never) return false;
+                var prev = Sig(s - 1);
+                if (prev == null) return false;
+                var owner = prev.Is("KEY") || prev.Is("UNIQUE") || prev.Is("CLUSTERED") || prev.Is("NONCLUSTERED");
+                if (!owner && prev.IsName)
+                {
+                    var k = s - 1;
+                    while (k >= 0 && (_sig[k].IsName || _sig[k].Text == ".")) k--;
+                    owner = k >= 0 && (_sig[k].Is("REFERENCES") || _sig[k].Is("INDEX"));
+                }
+                if (!owner) return false;
+                if (_o.ConstraintColumnsOnNewLines == ListWrap.Always) return true;
+                var depth = 0;
+                for (var k = s; k < _sig.Count; k++)
+                {
+                    var w = _sig[k].Text;
+                    if (w == "(") depth++;
+                    else if (w == ")" && --depth == 0) return false;
+                    else if (w == "," && depth == 1) return true;
+                }
+                return false;
             }
 
             // ----- collapsing -----

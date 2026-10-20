@@ -115,6 +115,65 @@ namespace SqlSense.Core.Formatting
                 Use("operators.in.addSpaceAroundInContents", "Spaces inside IN ( … ) = " + inSpace);
             }
 
+            Casing(values, "casing.globalVariables", c => o.GlobalVariableCase = c, "@@variable case", Use);
+            if (Bool(values, "casing.useObjectDefinitionCase") is bool definitionCase)
+            {
+                o.UseObjectDefinitionCase = definitionCase;
+                Use("casing.useObjectDefinitionCase", "Use object definition case = " + definitionCase);
+            }
+            if (Bool(values, "dml.addNewLineAfterDistinctAndTopClauses") is bool distinctTop)
+            {
+                o.BreakAfterDistinctTop = distinctTop;
+                Use("dml.addNewLineAfterDistinctAndTopClauses", "New line after DISTINCT / TOP = " + distinctTop);
+            }
+            if (Bool(values, "ddl.placeConstraintsOnNewLines") is bool constraints)
+            {
+                o.DdlConstraintsOnNewLines = constraints;
+                Use("ddl.placeConstraintsOnNewLines", "Constraints on new lines = " + constraints);
+            }
+            if (values.TryGetValue("ddl.placeConstraintColumnsOnNewLines", out var cc) && cc is string constraintColumns)
+            {
+                ListWrap? wrap = constraintColumns.Equals("never", StringComparison.OrdinalIgnoreCase) ? ListWrap.Never
+                    : constraintColumns.Equals("always", StringComparison.OrdinalIgnoreCase) ? ListWrap.Always
+                    : constraintColumns.IndexOf("multiple", StringComparison.OrdinalIgnoreCase) >= 0 ? ListWrap.IfMultipleItems
+                    : (ListWrap?)null;
+                if (wrap != null)
+                {
+                    o.ConstraintColumnsOnNewLines = wrap.Value;
+                    // SqlSense doesn't wrap long lines, so "ifLonger…" only reacts to the multiple-columns part.
+                    Use("ddl.placeConstraintColumnsOnNewLines", "Constraint columns on new lines = " + wrap.Value);
+                }
+            }
+            if (values.TryGetValue("caseExpressions.placeFirstWhenOnNewLine", out var fw) && fw is string firstWhen)
+            {
+                CaseWhenPlacement? placement = firstWhen.Equals("always", StringComparison.OrdinalIgnoreCase) ? CaseWhenPlacement.Always
+                    : firstWhen.Equals("never", StringComparison.OrdinalIgnoreCase) ? CaseWhenPlacement.Never
+                    : firstWhen.Equals("ifInputExpression", StringComparison.OrdinalIgnoreCase) ? CaseWhenPlacement.IfInputExpression
+                    : (CaseWhenPlacement?)null;
+                if (placement != null)
+                {
+                    o.FirstWhenOnNewLine = placement.Value;
+                    Use("caseExpressions.placeFirstWhenOnNewLine", "First WHEN on new line = " + placement.Value);
+                }
+            }
+            if (Bool(values, "whitespace.newLines.alignMultilineCommentsMatchingPatterns") is bool multiline)
+            {
+                o.AlignMultilineComments = multiline;
+                Use("whitespace.newLines.alignMultilineCommentsMatchingPatterns", "Align multi-line comments = " + multiline);
+            }
+            if (Bool(values, "whitespace.newLines.preserveExistingEmptyLinesAfterBatchSeparator") is bool keepAfterGo)
+            {
+                o.KeepBlankLinesAfterGo = keepAfterGo;
+                Use("whitespace.newLines.preserveExistingEmptyLinesAfterBatchSeparator", "Keep blank lines after GO = " + keepAfterGo);
+            }
+            // Plain parentheses (function calls, IN lists, expressions) are never expanded by SqlSense.
+            if (Bool(values, "parentheses.collapseShortParenthesisContents") == true)
+            {
+                Use("parentheses.collapseShortParenthesisContents", "already SqlSense's layout");
+                if (values.ContainsKey("parentheses.collapseParenthesesShorterThan"))
+                    Use("parentheses.collapseParenthesesShorterThan", "already SqlSense's layout");
+            }
+
             Same("insertStatements.columns.placeSubsequentColumnsOnNewLines", "never");
             Same("insertStatements.values.parenthesisStyle", "compactIndented", "compactSimple");
             Same("insertStatements.values.indentContents", "true");

@@ -121,6 +121,34 @@ namespace SqlSense.Settings
         [Category(Formatting), DisplayName("Spaces inside IN lists"), Description("Write IN ( 1, 2 ) instead of IN (1, 2).")]
         public bool SpaceInsideInLists { get; set; }
 
+        [Category(Formatting), DisplayName("New line after DISTINCT / TOP"), Description("SELECT DISTINCT / TOP (n) put the first select item on the next line.")]
+        public bool BreakAfterDistinctTop { get; set; }
+
+        [Category(Formatting), DisplayName("Constraints on new lines"),
+         Description("In CREATE TABLE, column constraints (CONSTRAINT, PRIMARY KEY, DEFAULT, REFERENCES, CHECK, …) get their own line.")]
+        public bool DdlConstraintsOnNewLines { get; set; }
+
+        [Category(Formatting), DisplayName("Constraint columns on new lines"),
+         Description("Columns of PRIMARY KEY / UNIQUE / REFERENCES / INDEX ( … ) in CREATE TABLE go one per line: Never, Always or IfMultipleItems.")]
+        public ListWrap ConstraintColumnsOnNewLines { get; set; } = ListWrap.Never;
+
+        [Category(Formatting), DisplayName("@@variable case"), Description("Case of system functions such as @@ROWCOUNT.")]
+        public KeywordCasing GlobalVariableCase { get; set; } = KeywordCasing.AsIs;
+
+        [Category(Formatting), DisplayName("Use object definition case"),
+         Description("Write table, view, routine, schema and column names as they are defined in the database. Needs the schema to be loaded; names defined in two spellings are left alone.")]
+        public bool UseObjectDefinitionCase { get; set; }
+
+        [Category(Formatting), DisplayName("First WHEN on new line"),
+         Description("Always; Never (first WHEN stays after CASE, the rest line up under it); IfInputExpression (new line only for CASE x WHEN …).")]
+        public CaseWhenPlacement FirstWhenOnNewLine { get; set; } = CaseWhenPlacement.Always;
+
+        [Category(Formatting), DisplayName("Align multi-line comments"), Description("Move the following lines of a /* … */ comment along with its first line.")]
+        public bool AlignMultilineComments { get; set; }
+
+        [Category(Formatting), DisplayName("Keep blank lines after GO")]
+        public bool KeepBlankLinesAfterGo { get; set; } = true;
+
         /// <summary>Copies formatter settings (e.g. from an imported SQL Prompt style) into this page.</summary>
         public void SetFormatOptions(FormatOptions o)
         {
@@ -141,6 +169,14 @@ namespace SqlSense.Settings
             SubqueryParenStyle = o.SubqueryParenStyle;
             DdlParenStyle = o.DdlParenStyle;
             SpaceInsideInLists = o.SpaceInsideInLists;
+            BreakAfterDistinctTop = o.BreakAfterDistinctTop;
+            DdlConstraintsOnNewLines = o.DdlConstraintsOnNewLines;
+            ConstraintColumnsOnNewLines = o.ConstraintColumnsOnNewLines;
+            GlobalVariableCase = o.GlobalVariableCase;
+            UseObjectDefinitionCase = o.UseObjectDefinitionCase;
+            FirstWhenOnNewLine = o.FirstWhenOnNewLine;
+            AlignMultilineComments = o.AlignMultilineComments;
+            KeepBlankLinesAfterGo = o.KeepBlankLinesAfterGo;
         }
 
         public FormatOptions GetFormatOptions() => new FormatOptions
@@ -162,6 +198,14 @@ namespace SqlSense.Settings
             SubqueryParenStyle = SubqueryParenStyle,
             DdlParenStyle = DdlParenStyle,
             SpaceInsideInLists = SpaceInsideInLists,
+            BreakAfterDistinctTop = BreakAfterDistinctTop,
+            DdlConstraintsOnNewLines = DdlConstraintsOnNewLines,
+            ConstraintColumnsOnNewLines = ConstraintColumnsOnNewLines,
+            GlobalVariableCase = GlobalVariableCase,
+            UseObjectDefinitionCase = UseObjectDefinitionCase,
+            FirstWhenOnNewLine = FirstWhenOnNewLine,
+            AlignMultilineComments = AlignMultilineComments,
+            KeepBlankLinesAfterGo = KeepBlankLinesAfterGo,
         };
 
         public override void LoadSettingsFromStorage()
