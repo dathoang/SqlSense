@@ -1,0 +1,8 @@
+bin/
+obj/
+dist/
+.vs/
+*.user
+TestResults/
+# Local reverse-engineering notes; not published.
+docs/

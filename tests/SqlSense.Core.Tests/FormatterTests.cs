@@ -1,0 +1,187 @@
+using SqlSense.Core.Formatting;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace SqlSense.Core.Tests
+{
+    public class FormatterTests
+    {
+        private readonly ITestOutputHelper _out;
+        private readonly SqlFormatter _f = new SqlFormatter(new FormatOptions { NewLine = "\n" });
+
+        public FormatterTests(ITestOutputHelper output) => _out = output;
+
+        private string Fmt(string sql)
+        {
+            var r = _f.Format(sql);
+            _out.WriteLine(r.Text);
+            Assert.True(r.Success, r.Error);
+            return r.Text;
+        }
+
+        [Fact]
+        public void Select_with_join_and_where()
+        {
+            var sql = "select c.CustomerID, c.Name, count(*) as n from dbo.Customers c inner join sales.Orders o on o.CustomerID = c.CustomerID and o.Total > 0 where c.Active = 1 and o.Date between '2024-01-01' and '2024-12-31' group by c.CustomerID, c.Name order by n desc";
+            var expected =
+                "SELECT c.CustomerID,\n" +
+                "       c.Name,\n" +
+                "       COUNT(*) AS n\n" +
+                "FROM dbo.Customers c\n" +
+                "    INNER JOIN sales.Orders o\n" +
+                "        ON o.CustomerID = c.CustomerID\n" +
+                "           AND o.Total > 0\n" +
+                "WHERE c.Active = 1\n" +
+                "      AND o.Date BETWEEN '2024-01-01' AND '2024-12-31'\n" +
+                "GROUP BY c.CustomerID,\n" +
+                "         c.Name\n" +
+                "ORDER BY n DESC";
+            Assert.Equal(expected, Fmt(sql));
+        }
+
+        [Fact]
+        public void Subquery_is_indented()
+        {
+            var sql = "select * from dbo.A where id in (select id from dbo.B where x = 1)";
+            var expected =
+                "SELECT *\n" +
+                "FROM dbo.A\n" +
+                "WHERE id IN (\n" +
+                "    SELECT id\n" +
+                "    FROM dbo.B\n" +
+                "    WHERE x = 1\n" +
+                ")";
+            Assert.Equal(expected, Fmt(sql));
+        }
+
+        [Fact]
+        public void Case_expression()
+        {
+            var sql = "select case when a = 1 then 'one' when a = 2 then 'two' else 'many' end as label from t";
+            var expected =
+                "SELECT CASE\n" +
+                "           WHEN a = 1 THEN 'one'\n" +
+                "           WHEN a = 2 THEN 'two'\n" +
+                "           ELSE 'many'\n" +
+                "       END AS label\n" +
+                "FROM t";
+            Assert.Equal(expected, Fmt(sql));
+        }
+
+        [Fact]
+        public void Blocks_if_else_and_try_catch()
+        {
+            var sql = "begin try begin tran; update dbo.t set a = 1, b = 2 where id = @id; if @@rowcount = 0 throw 50000, 'missing', 1; else print 'ok'; commit; end try begin catch rollback; throw; end catch";
+            var expected =
+                "BEGIN TRY\n" +
+                "    BEGIN TRAN;\n" +
+                "    UPDATE dbo.t\n" +
+                "    SET a = 1,\n" +
+                "        b = 2\n" +
+                "    WHERE id = @id;\n" +
+                "    IF @@rowcount = 0\n" +
+                "        THROW 50000, 'missing', 1;\n" +
+                "    ELSE\n" +
+                "        PRINT 'ok';\n" +
+                "    COMMIT;\n" +
+                "END TRY\n" +
+                "BEGIN CATCH\n" +
+                "    ROLLBACK;\n" +
+                "    THROW;\n" +
+                "END CATCH";
+            Assert.Equal(expected, Fmt(sql));
+        }
+
+        [Fact]
+        public void Comments_are_preserved()
+        {
+            var sql = "-- header\nselect a, -- first\n b /* second */ from t -- tail\nwhere x = 1";
+            var result = Fmt(sql);
+            Assert.Contains("-- header", result);
+            Assert.Contains("a, -- first", result);
+            Assert.Contains("/* second */", result);
+            Assert.Contains("-- tail", result);
+            Assert.Null(SqlFormatter.Verify(sql, result));
+        }
+
+        [Fact]
+        public void Insert_values_and_create_table()
+        {
+            var sql = "create table dbo.T (Id int not null primary key, Name nvarchar(50) null); insert into dbo.T (Id, Name) values (1, N'a'), (2, N'b');";
+            var expected =
+                "CREATE TABLE dbo.T (\n" +
+                "    Id int NOT NULL PRIMARY KEY,\n" +
+                "    Name nvarchar(50) NULL\n" +
+                ");\n" +
+                "INSERT INTO dbo.T (Id, Name)\n" +
+                "VALUES (1, N'a'),\n" +
+                "       (2, N'b');";
+            Assert.Equal(expected, Fmt(sql));
+        }
+
+        [Fact]
+        public void Cte_and_declare()
+        {
+            var sql = "declare @from date = getdate(), @n int = -1; with x as (select a from t) select a from x";
+            var expected =
+                "DECLARE @from date = GETDATE(),\n" +
+                "        @n int = -1;\n" +
+                "WITH x AS (\n" +
+                "    SELECT a\n" +
+                "    FROM t\n" +
+                ")\n" +
+                "SELECT a\n" +
+                "FROM x";
+            Assert.Equal(expected, Fmt(sql));
+        }
+
+        [Fact]
+        public void Go_separates_batches_and_blank_lines_are_kept()
+        {
+            var sql = "select 1\ngo\n\nselect 2\n\n\n\nselect 3";
+            Assert.Equal("SELECT 1\nGO\n\nSELECT 2\n\nSELECT 3", Fmt(sql));
+        }
+
+        [Theory]
+        [InlineData("select a.b, [weird name], @v, N'x' + 'y' from [dbo].[t] with (nolock) where a.b <> 1 and c >= 2 or d != 3")]
+        [InlineData("merge dbo.t as tgt using dbo.s as src on tgt.id = src.id when matched then update set tgt.v = src.v when not matched then insert (id, v) values (src.id, src.v);")]
+        [InlineData("select row_number() over (partition by a order by b desc) rn, left(name, 3), cast(x as decimal(10, 2)) from t order by 1 offset 10 rows fetch next 5 rows only")]
+        [InlineData("create or alter procedure dbo.p @a int, @b varchar(10) = null output as begin set nocount on; select @a; end")]
+        [InlineData("while @i < 10 begin set @i += 1; end")]
+        [InlineData("select * from a cross apply (select top (1) * from b where b.id = a.id order by b.d desc) x outer apply dbo.fn(a.id) f")]
+        [InlineData("select x from t where exists (select 1 from u where u.id = t.id) and not exists (select 1 from v)")]
+        [InlineData("SELECT 1 UNION ALL SELECT 2 EXCEPT SELECT 3")]
+        [InlineData("select -1, - 2, 3 - 4, a*-b from t")]
+        [InlineData("delete from t where id = 1; delete t from t join u on u.id = t.id")]
+        [InlineData("if exists (select 1 from t) begin select 1 end else if 1 = 2 select 2 else begin select 3 end")]
+        public void Formatting_never_changes_tokens_and_is_idempotent(string sql)
+        {
+            var once = Fmt(sql);
+            Assert.Null(SqlFormatter.Verify(sql, once));
+            var twice = Fmt(once);
+            Assert.Equal(once, twice);
+        }
+
+        [Fact]
+        public void Unterminated_string_is_rejected_without_changes()
+        {
+            var r = _f.Format("select 'abc from t");
+            Assert.False(r.Success);
+            Assert.Equal("select 'abc from t", r.Text);
+        }
+
+        [Fact]
+        public void Base_indent_is_applied_to_selection()
+        {
+            var r = _f.Format("select a from t where b = 1", "    ");
+            Assert.Equal("    SELECT a\n    FROM t\n    WHERE b = 1", r.Text);
+        }
+
+        [Fact]
+        public void Leading_commas_option()
+        {
+            var f = new SqlFormatter(new FormatOptions { NewLine = "\n", LeadingCommas = true });
+            Assert.Equal("SELECT a\n     , b\nFROM t", f.Format("select a, b from t").Text);
+        }
+    }
+}

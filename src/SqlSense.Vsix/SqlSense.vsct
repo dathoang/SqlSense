@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <Extern href="stdidcmd.h" />
+  <Extern href="vsshlids.h" />
+
+  <Commands package="guidSqlSensePackage">
+    <Menus>
+      <Menu guid="guidSqlSenseCmdSet" id="SqlSenseMenu" priority="0x0700" type="Menu">
+        <Parent guid="guidSHLMainMenu" id="IDG_VS_MM_TOOLSADDINS" />
+        <Strings>
+          <ButtonText>SqlSense</ButtonText>
+        </Strings>
+      </Menu>
+    </Menus>
+
+    <Groups>
+      <Group guid="guidSqlSenseCmdSet" id="SqlSenseMenuGroup" priority="0x0600">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseMenu" />
+      </Group>
+    </Groups>
+
+    <Buttons>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidFormatSql" priority="0x0100" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseMenuGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Format SQL</ButtonText>
+          <CanonicalName>SqlSense.FormatSql</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidExpandWildcards" priority="0x0101" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseMenuGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Expand Wildcard (SELECT *)</ButtonText>
+          <CanonicalName>SqlSense.ExpandWildcards</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidRefreshSuggestions" priority="0x0102" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseMenuGroup" />
+        <Strings>
+          <ButtonText>Refresh Suggestions</ButtonText>
+          <CanonicalName>SqlSense.RefreshSuggestions</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidToggleEnabled" priority="0x0103" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseMenuGroup" />
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Disable SqlSense</ButtonText>
+          <CanonicalName>SqlSense.ToggleEnabled</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidShowLog" priority="0x0104" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseMenuGroup" />
+        <Strings>
+          <ButtonText>Show Log</ButtonText>
+          <CanonicalName>SqlSense.ShowLog</CanonicalName>
+        </Strings>
+      </Button>
+    </Buttons>
+  </Commands>
+
+  <KeyBindings>
+    <KeyBinding guid="guidSqlSenseCmdSet" id="cmdidFormatSql" editor="guidVSStd97" key1="K" mod1="Control" key2="Y" mod2="Control" />
+    <KeyBinding guid="guidSqlSenseCmdSet" id="cmdidExpandWildcards" editor="guidVSStd97" key1="B" mod1="Control" key2="W" mod2="Control" />
+  </KeyBindings>
+
+  <Symbols>
+    <GuidSymbol name="guidSqlSensePackage" value="{b6a1f3d2-7c4e-4a5b-9f10-2e8d6c4b3a91}" />
+    <GuidSymbol name="guidSqlSenseCmdSet" value="{d9c4e7a1-5b2f-4c3d-8e6a-0f1b2c3d4e5f}">
+      <IDSymbol name="SqlSenseMenu" value="0x1010" />
+      <IDSymbol name="SqlSenseMenuGroup" value="0x1020" />
+      <IDSymbol name="cmdidFormatSql" value="0x0100" />
+      <IDSymbol name="cmdidRefreshSuggestions" value="0x0101" />
+      <IDSymbol name="cmdidToggleEnabled" value="0x0102" />
+      <IDSymbol name="cmdidExpandWildcards" value="0x0103" />
+      <IDSymbol name="cmdidShowLog" value="0x0104" />
+    </GuidSymbol>
+  </Symbols>
+</CommandTable>

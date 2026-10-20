@@ -1,0 +1,9 @@
+<Project>
+  <!-- Deeply nested checkouts exceed Windows path limits (testhost, VSCT, pkgdef generation).
+       In that case build into a short folder under %TEMP% instead of bin/obj next to the sources. -->
+  <PropertyGroup Condition="$(MSBuildThisFileDirectory.Length) &gt; 100">
+    <SqlSenseBuildRoot>$([System.IO.Path]::GetTempPath())ssb\</SqlSenseBuildRoot>
+    <BaseIntermediateOutputPath>$(SqlSenseBuildRoot)obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(SqlSenseBuildRoot)bin\$(MSBuildProjectName)\</BaseOutputPath>
+  </PropertyGroup>
+</Project>
