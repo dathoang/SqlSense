@@ -53,6 +53,7 @@
     <Compile Include="Editor\SqlViewListener.cs" />
     <Compile Include="Editor\SqlCommandFilter.cs" />
     <Compile Include="Editor\EditorActions.cs" />
+    <Compile Include="Editor\InsertPairHighlighter.cs" />
     <Compile Include="IntelliSense\SqlCompletionSourceProvider.cs" />
     <Compile Include="IntelliSense\SqlCompletionSource.cs" />
     <Compile Include="IntelliSense\SqlCompletionSet.cs" />

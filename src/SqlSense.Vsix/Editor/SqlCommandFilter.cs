@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Runtime.InteropServices;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Language.Intellisense;
@@ -9,6 +10,8 @@ using Microsoft.VisualStudio.Text.Editor;
 using SqlSense.Core.Analysis;
 using SqlSense.Core.Completion;
 using SqlSense.Diagnostics;
+using SqlSense.IntelliSense;
+using SqlSense.Schema;
 using SqlSense.Settings;
 
 namespace SqlSense.Editor
@@ -22,6 +25,9 @@ namespace SqlSense.Editor
     {
         public static readonly object SessionMarker = new object();
 
+        /// <summary>Set by the completion source when it had no schema yet (still loading).</summary>
+        public static readonly object WithoutSchemaMarker = new object();
+
         private static readonly string[] TriggerWordsBeforeSpace =
         {
             "FROM", "JOIN", "EXEC", "EXECUTE", "INTO", "UPDATE", "USE", "APPLY", "ON",
@@ -31,10 +37,58 @@ namespace SqlSense.Editor
         private readonly ICompletionBroker _broker;
         private ICompletionSession _session;
 
+        /// <summary>Where a list opened before the schema arrived: reopen it there when the schema loads.</summary>
+        private (int Version, int Caret)? _reopenWhenSchemaLoads;
+
         public SqlCommandFilter(IWpfTextView view, ICompletionBroker broker)
         {
             _view = view;
             _broker = broker;
+            SchemaService.SchemaLoaded += OnSchemaLoaded;
+        }
+
+        public void Detach() => SchemaService.SchemaLoaded -= OnSchemaLoaded;
+
+        private void OnSchemaLoaded(object sender, EventArgs e)
+        {
+            if (_reopenWhenSchemaLoads == null) return;
+            // Raised on a background thread; the lambda switches to the UI thread before touching the view.
+#pragma warning disable VSTHRD010, VSSDK007
+            ThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                ReopenWithSchema();
+            }).FileAndForget("SqlSense/ReopenWithSchema");
+#pragma warning restore VSTHRD010, VSSDK007
+        }
+
+        private void ReopenWithSchema()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var pending = _reopenWhenSchemaLoads;
+            _reopenWhenSchemaLoads = null;
+            if (pending == null || _view.IsClosed) return;
+            try
+            {
+                if (HasSession)
+                {
+                    // Still typing in the schema-less list: rebuild it with tables, columns, databases.
+                    if (!_session.Properties.ContainsProperty(WithoutSchemaMarker)) return;
+                    _session.Dismiss();
+                }
+                else
+                {
+                    // The list never opened (nothing to show without schema): only if the user hasn't moved on.
+                    var caret = _view.Caret.Position.BufferPosition;
+                    if (caret.Snapshot.Version.VersionNumber != pending.Value.Version || caret.Position != pending.Value.Caret) return;
+                }
+                Log.Trace("schema loaded: reopening the list");
+                StartSession();
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Reopening suggestions after the schema loaded", ex);
+            }
         }
 
         public IOleCommandTarget Next { get; set; }
@@ -48,6 +102,7 @@ namespace SqlSense.Editor
             ThreadHelper.ThrowIfNotOnUIThread();
             if (!Active) return Next.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
 
+            _handled = null;
             try
             {
                 if (pguidCmdGroup == VSConstants.VSStd2K)
@@ -90,7 +145,7 @@ namespace SqlSense.Editor
                         case VSConstants.VSStd2KCmdID.BACKSPACE:
                         case VSConstants.VSStd2KCmdID.DELETE:
                         {
-                            var hr = Next.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
+                            var hr = Forward(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
                             Refilter();
                             return hr;
                         }
@@ -111,8 +166,22 @@ namespace SqlSense.Editor
             catch (Exception ex)
             {
                 Log.Error("Handling editor command " + nCmdID, ex);
+                // The key was already typed (or the edit made) before the failure: passing it on
+                // again would type it twice ("sy" -> "syy").
+                if (_handled is int hr) return hr;
             }
             return Next.Exec(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
+        }
+
+        /// <summary>Set once the current command has reached the buffer, so it is never executed twice.</summary>
+        private int? _handled;
+
+        private int Forward(ref Guid group, uint id, uint opt, IntPtr pin, IntPtr pout)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var hr = Next.Exec(ref group, id, opt, pin, pout);
+            _handled = hr;
+            return hr;
         }
 
         public int QueryStatus(ref Guid pguidCmdGroup, uint cCmds, OLECMD[] prgCmds, IntPtr pCmdText)
@@ -149,7 +218,7 @@ namespace SqlSense.Editor
 
             if (settings.AutoCloseBrackets && HandleBrackets(ch)) return VSConstants.S_OK;
 
-            var hr = Next.Exec(ref group, id, opt, pin, pout);
+            var hr = Forward(ref group, id, opt, pin, pout);
             if (hr != VSConstants.S_OK) return hr;
 
             if (HasSession)
@@ -229,32 +298,86 @@ namespace SqlSense.Editor
             }
             var caret = _view.Caret.Position.BufferPosition;
             var point = caret.Snapshot.CreateTrackingPoint(caret.Position, PointTrackingMode.Positive);
-            _session = _broker.CreateCompletionSession(_view, point, true);
-            _session.Properties.AddProperty(SessionMarker, true);
-            _session.Dismissed += OnSessionDismissed;
-            _session.Start();
-            if (HasSession) Refilter();
+            var session = _broker.CreateCompletionSession(_view, point, true);
+            _session = session;
+            session.Properties.AddProperty(SessionMarker, true);
+            session.Dismissed += OnSessionDismissed;
+            session.Start();
+            _reopenWhenSchemaLoads = session.Properties.ContainsProperty(WithoutSchemaMarker)
+                ? (caret.Snapshot.Version.VersionNumber, caret.Position)
+                : ((int, int)?)null;
+            if (!HasSession)
+            {
+                Log.Trace($"start at {caret.Position}: no list (no suggestions, or the editor closed it)");
+                return;
+            }
+            var set = SqlSet();
+            if (set != null && !ReferenceEquals(_session.SelectedCompletionSet, set))
+            {
+                try
+                {
+                    _session.SelectedCompletionSet = set;
+                }
+                catch (Exception ex)
+                {
+                    Log.Error("Selecting the SqlSense completion set", ex);
+                }
+            }
+            Refilter();
         }
+
+        /// <summary>
+        /// Our own set. Other completion sources can add sets to the session; committing one of those
+        /// would use its span (often empty at the caret) and re-insert what was already typed.
+        /// </summary>
+        private SqlCompletionSet SqlSet() => _session.CompletionSets.OfType<SqlCompletionSet>().FirstOrDefault();
 
         private void Refilter()
         {
             if (!HasSession) return;
-            var set = _session.SelectedCompletionSet;
-            var caret = _view.Caret.Position.BufferPosition;
-            if (set == null || caret.Position < set.ApplicableTo.GetStartPoint(caret.Snapshot).Position)
+            // Filter() can dismiss the session, which clears _session (OnSessionDismissed): work on a local.
+            var session = _session;
+            try
             {
-                _session.Dismiss();
-                return;
+                var set = SqlSet();
+                var caret = _view.Caret.Position.BufferPosition;
+                if (set == null || caret.Position < set.ApplicableTo.GetStartPoint(caret.Snapshot).Position)
+                {
+                    session.Dismiss();
+                    return;
+                }
+                // Filter with SqlSense matching first: with no match we close the list ourselves (and know
+                // why); otherwise the session's own Filter() keeps the presenter in sync (it reuses our result).
+                set.Filter();
+                var typed = set.ApplicableTo.GetText(caret.Snapshot);
+                var matches = set.Completions.Count;
+                Log.Trace($"refilter typed='{typed}' caret={caret.Position} span={set.ApplicableTo.GetSpan(caret.Snapshot).Span} " +
+                          $"matches={matches} of {set.TotalCount}");
+                if (matches == 0)
+                {
+                    session.Dismiss();
+                    return;
+                }
+                session.Filter();
+                if (session.IsDismissed)
+                {
+                    Log.Trace($"editor closed the list after filtering '{typed}' ({matches} matches)");
+                    return;
+                }
+                set.SelectBestMatch();
             }
-            _session.Filter();
-            if (set.Completions.Count == 0) _session.Dismiss();
-            else set.SelectBestMatch();
+            catch (Exception ex)
+            {
+                // A broken list must not cost the keystroke: close it and keep typing.
+                Log.Error("Filtering suggestions", ex);
+                if (!session.IsDismissed) session.Dismiss();
+            }
         }
 
         private bool Commit(bool requireSelection)
         {
             if (!HasSession) return false;
-            var set = _session.SelectedCompletionSet;
+            var set = SqlSet();
             var status = set?.SelectionStatus;
             if (status?.Completion == null || requireSelection && !status.IsSelected)
             {
@@ -266,15 +389,41 @@ namespace SqlSense.Editor
             completion.Properties.TryGetProperty(typeof(CompletionItem), out CompletionItem item);
             var insert = item?.InsertText ?? completion.InsertionText;
             var caretOffset = item?.CaretOffset ?? -1;
-            var span = set.ApplicableTo.GetSpan(_view.TextBuffer.CurrentSnapshot);
+            var span = ReplacementSpan(set.ApplicableTo.GetSpan(_view.TextBuffer.CurrentSnapshot));
             _session.Dismiss();
             EditorActions.Replace(_view, span, insert, caretOffset);
+            _handled = VSConstants.S_OK;
             return true;
+        }
+
+        /// <summary>
+        /// The typed prefix plus the rest of the word after the caret, so committing before or inside
+        /// an existing word ("n|ame", "[Cu|]" with an auto-closed bracket) replaces it instead of
+        /// leaving the old tail behind ("namename", "[Customers]]").
+        /// </summary>
+        private static Span ReplacementSpan(SnapshotSpan typed)
+        {
+            var snapshot = typed.Snapshot;
+            var end = typed.End.Position;
+            while (end < snapshot.Length && IsWordChar(snapshot[end])) end++;
+            var text = typed.GetText();
+            if (text.StartsWith("[", StringComparison.Ordinal) && text.IndexOf(']') < 0
+                && end < snapshot.Length && snapshot[end] == ']')
+                end++;
+            return Span.FromBounds(typed.Start.Position, end);
         }
 
         private void OnSessionDismissed(object sender, EventArgs e)
         {
             if (sender is ICompletionSession s) s.Dismissed -= OnSessionDismissed;
+            // Who closed the list: the editor (EnsureSessionValid, buffer change) or SqlSense.
+            var frames = Environment.StackTrace.Split('\n')
+                .Select(f => f.Trim())
+                .Where(f => f.StartsWith("at ", StringComparison.Ordinal)
+                            && (f.Contains("Intellisense") || f.Contains("SqlSense")) && !f.Contains("OnSessionDismissed"))
+                .Take(6)
+                .Select(f => f.Length > 120 ? f.Substring(0, 120) : f);
+            Log.Trace("dismissed by: " + string.Join(" <- ", frames));
             if (ReferenceEquals(sender, _session)) _session = null;
         }
 

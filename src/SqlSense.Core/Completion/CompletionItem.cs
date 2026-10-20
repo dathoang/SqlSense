@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace SqlSense.Core.Completion
 {
@@ -63,7 +64,8 @@ namespace SqlSense.Core.Completion
             if (candidate.Equals(typed, StringComparison.OrdinalIgnoreCase)) return 1000;
             if (candidate.StartsWith(typed, StringComparison.Ordinal)) return 900;
             if (candidate.StartsWith(typed, StringComparison.OrdinalIgnoreCase)) return 800;
-            if (MatchesInitials(typed, candidate)) return 700;
+            var segments = SegmentScore(typed, candidate);
+            if (segments > 0) return segments;
             var idx = candidate.IndexOf(typed, StringComparison.OrdinalIgnoreCase);
             if (idx > 0) return 500 - Math.Min(idx, 100);
             return 0;
@@ -76,18 +78,65 @@ namespace SqlSense.Core.Completion
             return dot >= 0 ? s.Substring(dot + 1) : s;
         }
 
-        /// <summary>"soh" matches "SalesOrderHeader" and "sales_order_header".</summary>
-        private static bool MatchesInitials(string typed, string candidate)
+        /// <summary>
+        /// Word-segment match: the typed text is split into prefixes of the candidate's words, in
+        /// order, so "soh" matches "SalesOrderHeader", "isms" matches "is_ms_shipped" and "custid"
+        /// matches "CustomerID". Returns 600-700 (fewer skipped words scores higher) or 0.
+        /// </summary>
+        private static int SegmentScore(string typed, string candidate)
         {
-            var t = 0;
-            for (var i = 0; i < candidate.Length && t < typed.Length; i++)
+            typed = typed.Replace("_", string.Empty).Replace(" ", string.Empty);
+            if (typed.Length < 2) return 0;
+            var starts = SegmentStarts(candidate);
+            if (starts.Count < 2) return 0;
+            var memo = new int?[typed.Length, starts.Count];
+            var penalty = BestSegmentMatch(typed, 0, candidate, starts, 0, memo);
+            return penalty < 0 ? 0 : 700 - Math.Min(penalty, 100);
+        }
+
+        /// <summary>Lowest penalty for matching typed[t..] using segments s.. onwards; -1 = no match.</summary>
+        private static int BestSegmentMatch(string typed, int t, string candidate, List<int> starts, int s, int?[,] memo)
+        {
+            if (t == typed.Length) return 0;
+            if (s >= starts.Count) return -1;
+            if (memo[t, s] is int cached) return cached;
+
+            var best = -1;
+            for (var seg = s; seg < starts.Count; seg++)
+            {
+                var segEnd = seg + 1 < starts.Count ? starts[seg + 1] : candidate.Length;
+                // Skipping words costs; skipping the leading word costs most.
+                var skipped = (seg - s) * (t == 0 ? 20 : 5);
+                for (var k = 0;
+                     t + k < typed.Length && starts[seg] + k < segEnd
+                     && char.ToLowerInvariant(candidate[starts[seg] + k]) == char.ToLowerInvariant(typed[t + k]);
+                     k++)
+                {
+                    var rest = BestSegmentMatch(typed, t + k + 1, candidate, starts, seg + 1, memo);
+                    if (rest >= 0 && (best < 0 || skipped + rest < best)) best = skipped + rest;
+                }
+            }
+            memo[t, s] = best;
+            return best;
+        }
+
+        /// <summary>Word starts: after _ or space, lower→upper, the last capital of an acronym (XMLData), digits.</summary>
+        private static List<int> SegmentStarts(string candidate)
+        {
+            var starts = new List<int>();
+            for (var i = 0; i < candidate.Length; i++)
             {
                 var c = candidate[i];
-                var isStart = i == 0 || char.IsUpper(c) && !char.IsUpper(candidate[i - 1])
-                                     || (candidate[i - 1] == '_' || candidate[i - 1] == ' ') && char.IsLetterOrDigit(c);
-                if (isStart && char.ToLowerInvariant(c) == char.ToLowerInvariant(typed[t])) t++;
+                if (!char.IsLetterOrDigit(c)) continue;
+                var prev = i > 0 ? candidate[i - 1] : '\0';
+                var next = i + 1 < candidate.Length ? candidate[i + 1] : '\0';
+                if (i == 0 || !char.IsLetterOrDigit(prev)
+                    || char.IsUpper(c) && !char.IsUpper(prev)
+                    || char.IsUpper(c) && char.IsUpper(prev) && char.IsLower(next)
+                    || char.IsDigit(c) && !char.IsDigit(prev))
+                    starts.Add(i);
             }
-            return t == typed.Length && typed.Length > 1;
+            return starts;
         }
     }
 }

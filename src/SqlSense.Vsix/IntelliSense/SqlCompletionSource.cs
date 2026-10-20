@@ -15,7 +15,6 @@ namespace SqlSense.IntelliSense
     /// <summary>Feeds the editor's completion session with SqlSense suggestions.</summary>
     internal sealed class SqlCompletionSource : ICompletionSource
     {
-        private const int MaxItems = 4000;
         private readonly ITextBuffer _buffer;
         private readonly IGlyphService _glyphs;
         private readonly Dictionary<CompletionItemKind, ImageSource> _icons = new Dictionary<CompletionItemKind, ImageSource>();
@@ -42,17 +41,25 @@ namespace SqlSense.IntelliSense
 
                 var conn = SsmsConnection.GetActive();
                 var schema = SchemaService.Get(conn, SqlDocument.DatabaseFromUse(text, caret));
+                // Still loading: SqlCommandFilter reopens the list once it arrives.
+                if (schema == null && conn != null && conn.Unsupported == null)
+                    session.Properties[SqlCommandFilter.WithoutSchemaMarker] = true;
                 var engine = new CompletionEngine(settings.Completion, SnippetCache.Get(settings))
                 {
                     NewLine = SqlDocument.LineBreak(snapshot),
                     FilterByPrefix = false,
                 };
                 var result = engine.GetCompletions(text, caret, schema);
+                Log.Trace($"augment kind={result.Context.Kind} prefix='{result.Context.Prefix}' prefixStart={result.Context.PrefixStart} caret={caret} " +
+                          $"schema={(schema == null ? "null" : schema.DatabaseName + "/" + schema.Objects.Count + " objects/" + schema.OtherDatabases.Count + " dbs")} " +
+                          $"items={result.Items.Count} " +
+                          $"first=[{string.Join(", ", result.Items.Take(5).Select(i => i.DisplayText))}]");
                 if (result.Items.Count == 0) return;
 
                 var start = Math.Min(result.Context.PrefixStart, caret);
                 var span = snapshot.CreateTrackingSpan(start, caret - start, SpanTrackingMode.EdgeInclusive);
-                var completions = result.Items.Take(MaxItems).Select(ToCompletion).ToList();
+                // No cap: filtering runs on the whole list, so a cut-off would hide real matches (6000+ tables is common).
+                var completions = result.Items.Select(ToCompletion).ToList();
                 completionSets.Add(new SqlCompletionSet("SqlSense", "SqlSense", span, completions));
             }
             catch (Exception ex)

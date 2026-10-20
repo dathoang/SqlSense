@@ -10,12 +10,16 @@ namespace SqlSense.Diagnostics
     {
         public static void Info(string message) => Write("INFO ", message);
 
+        /// <summary>Suggestion-list diagnostics: written to the log file only, never to the Output pane.</summary>
+        public static void Trace(string message) => AppendToFile($"{DateTime.Now:HH:mm:ss.fff} TRACE {message}{Environment.NewLine}");
+
         public static void Error(string message, Exception ex = null) =>
-            Write("ERROR", ex == null ? message : message + ": " + ex.GetType().Name + ": " + ex.Message);
+            Write("ERROR", ex == null ? message : message + ": " + ex);
 
         private static void Write(string level, string message)
         {
             var line = $"{DateTime.Now:HH:mm:ss} {level} {message}{Environment.NewLine}";
+            if (level == "ERROR") AppendToFile(line);
             // Fire-and-forget: the lambda switches to the UI thread before touching the pane, so
             // logging is safe from any thread (the analyzers can't see through the switch).
 #pragma warning disable VSTHRD010, VSSDK007
@@ -25,6 +29,28 @@ namespace SqlSense.Diagnostics
                 LogPane.Get()?.OutputStringThreadSafe(line);
             }).FileAndForget("SqlSense/Log");
 #pragma warning restore VSTHRD010, VSSDK007
+        }
+
+        /// <summary>%LOCALAPPDATA%\SqlSense\sqlsense.log, so errors survive closing SSMS.</summary>
+        public static readonly string FilePath = System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SqlSense", "sqlsense.log");
+
+        private static readonly object FileLock = new object();
+
+        private static void AppendToFile(string line)
+        {
+            try
+            {
+                lock (FileLock)
+                {
+                    System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(FilePath));
+                    System.IO.File.AppendAllText(FilePath, DateTime.Now.ToString("yyyy-MM-dd ") + line);
+                }
+            }
+            catch (Exception)
+            {
+                // Logging must never break the editor.
+            }
         }
     }
 

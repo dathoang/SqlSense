@@ -1,6 +1,7 @@
 using System.Linq;
 using SqlSense.Core.Analysis;
 using SqlSense.Core.Completion;
+using SqlSense.Core.Schema;
 using Xunit;
 
 namespace SqlSense.Core.Tests
@@ -52,12 +53,60 @@ namespace SqlSense.Core.Tests
             Assert.Equal("dbo.Customers AS c", first.InsertText);
         }
 
+        [Theory]
+        [InlineData("USE K99|", "KANGAROO_APP99")]
+        [InlineData("use k99|", "KANGAROO_APP99")]
+        [InlineData("SELECT * FROM c0|", "dbo.ct00")]
+        [InlineData("select * from c0|", "dbo.ct00")]
+        public void Word_segment_search_finds_databases_and_tables(string sql, string expected)
+        {
+            var s = TestSchema.Create();
+            s.OtherDatabases.Add("KANGAROO_APP99");
+            s.Add(new DbObject("dbo", "ct00", DbObjectKind.Table));
+            var caret = sql.IndexOf('|');
+            var r = _engine.GetCompletions(sql.Remove(caret, 1), caret, s);
+            Assert.Equal(expected, r.Items.First().DisplayText);
+        }
+
         [Fact]
         public void Initials_match_camel_case_names()
         {
             var r = Complete("SELECT * FROM soh|");
             Assert.Equal("sales.SalesOrderHeader", r.Items.First().DisplayText);
             Assert.Equal("sales.SalesOrderHeader AS soh", r.Items.First().InsertText);
+        }
+
+        [Theory]
+        [InlineData("isms", "is_ms_shipped")]
+        [InlineData("ismssh", "is_ms_shipped")]
+        [InlineData("msship", "is_ms_shipped")]
+        [InlineData("soh", "SalesOrderHeader")]
+        [InlineData("salord", "SalesOrderHeader")]
+        [InlineData("custid", "CustomerID")]
+        [InlineData("xmldat", "GetXMLData")]
+        [InlineData("objid", "object_id")]
+        [InlineData("K99", "KANGAROO_APP99")]
+        [InlineData("c0", "ct00")]
+        [InlineData("c0", "dbo.ct00")]
+        public void Word_segment_prefixes_match(string typed, string candidate)
+        {
+            Assert.InRange(CompletionMatcher.Score(typed, candidate), 600, 700);
+        }
+
+        [Theory]
+        [InlineData("isms", "is_published")]
+        [InlineData("sih", "SalesOrderHeader")]
+        [InlineData("ohs", "SalesOrderHeader")]
+        public void Word_segment_match_needs_order_and_word_starts(string typed, string candidate)
+        {
+            Assert.Equal(0, CompletionMatcher.Score(typed, candidate));
+        }
+
+        [Fact]
+        public void Word_segment_match_prefers_leading_word_and_fewer_skips()
+        {
+            Assert.True(CompletionMatcher.Score("isms", "is_ms_shipped") > CompletionMatcher.Score("isms", "is_auto_ms_shipped"));
+            Assert.True(CompletionMatcher.Score("isms", "is_ms_shipped") > CompletionMatcher.Score("isms", "uses_is_ms_shipped"));
         }
 
         [Fact]

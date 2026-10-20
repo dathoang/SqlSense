@@ -47,8 +47,14 @@ namespace SqlSense.Editor
         public static string DatabaseFromUse(string text, int caret)
         {
             string db = null;
-            foreach (Match m in UseStatement.Matches(text.Substring(0, Math.Min(caret, text.Length))))
+            var before = text.Substring(0, Math.Min(caret, text.Length));
+            foreach (Match m in UseStatement.Matches(before))
+            {
+                // A name that runs up to the caret is still being typed ("USE k|"): loading it would
+                // fail, or pick the wrong database.
+                if (m.Index + m.Length == before.Length) continue;
                 db = m.Groups["db"].Value;
+            }
             return db;
         }
 

@@ -16,6 +16,10 @@ namespace SqlSense.Settings
         [Category(General), DisplayName("Enabled"), Description("Turn SqlSense on or off in SQL query windows.")]
         public bool Enabled { get; set; } = true;
 
+        [Category(General), DisplayName("Highlight INSERT columns and values"),
+         Description("With the caret on a column of an INSERT column list, highlight its values (and on a value, its column). The colour is 'SqlSense INSERT column/value' in Fonts and Colors.")]
+        public bool HighlightInsertPairs { get; set; } = true;
+
         [Category(General), DisplayName("Snippets folder"),
          Description("Folder of user snippets: each <shortcut>.sql file becomes a snippet. An optional first line '-- text' is its description; $CURSOR$ marks the caret.")]
         public string SnippetsFolder { get; set; } = SqlSenseSettings.DefaultSnippetsFolder;
@@ -104,6 +108,7 @@ namespace SqlSense.Settings
                 AutoCloseBrackets = AutoCloseBrackets,
                 TabExpandsSnippets = TabExpandsSnippets,
                 TabExpandsWildcard = TabExpandsWildcard,
+                HighlightInsertPairs = HighlightInsertPairs,
                 IncludeSystemObjects = IncludeSystemObjects,
                 SchemaCacheMinutes = SchemaCacheMinutes < 1 ? 1 : SchemaCacheMinutes,
                 SnippetsFolder = string.IsNullOrWhiteSpace(SnippetsFolder) ? SqlSenseSettings.DefaultSnippetsFolder : SnippetsFolder,

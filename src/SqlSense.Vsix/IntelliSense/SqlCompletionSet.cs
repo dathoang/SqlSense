@@ -21,11 +21,19 @@ namespace SqlSense.IntelliSense
 
         public override IList<Completion> Completions => _filtered;
 
+        /// <summary>All suggestions, before filtering.</summary>
+        public int TotalCount => WritableCompletions.Count;
+
         private string Typed => ApplicableTo.GetText(ApplicableTo.TextBuffer.CurrentSnapshot);
+
+        private string _filteredFor;
 
         public override void Filter()
         {
             var typed = Typed;
+            // SqlCommandFilter filters first, then the session filters again: skip the repeat.
+            if (typed == _filteredFor) return;
+            _filteredFor = typed;
             if (string.IsNullOrEmpty(typed)) _filtered.StopFiltering();
             else _filtered.Filter(c => CompletionMatcher.Score(typed, c.DisplayText) > 0);
         }

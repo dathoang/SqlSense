@@ -15,6 +15,7 @@ namespace SqlSense.Settings
         public bool AutoCloseBrackets { get; set; } = true;
         public bool TabExpandsSnippets { get; set; } = true;
         public bool TabExpandsWildcard { get; set; } = true;
+        public bool HighlightInsertPairs { get; set; } = true;
         public bool IncludeSystemObjects { get; set; } = true;
         public int SchemaCacheMinutes { get; set; } = 30;
         public string SnippetsFolder { get; set; } = DefaultSnippetsFolder;

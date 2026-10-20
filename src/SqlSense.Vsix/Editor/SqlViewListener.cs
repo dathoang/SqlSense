@@ -39,6 +39,7 @@ namespace SqlSense.Editor
                 {
                     ThreadHelper.ThrowIfNotOnUIThread();
                     textViewAdapter.RemoveCommandFilter(filter);
+                    filter.Detach();
                 };
             }
         }
