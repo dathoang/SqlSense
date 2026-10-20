@@ -57,6 +57,8 @@
     <Compile Include="IntelliSense\SqlCompletionSourceProvider.cs" />
     <Compile Include="IntelliSense\SqlCompletionSource.cs" />
     <Compile Include="IntelliSense\SqlCompletionSet.cs" />
+    <Compile Include="Results\ResultGridReader.cs" />
+    <Compile Include="Results\ResultActions.cs" />
     <Compile Include="Schema\SsmsConnection.cs" />
     <Compile Include="Schema\SchemaLoader.cs" />
     <Compile Include="Schema\SchemaService.cs" />

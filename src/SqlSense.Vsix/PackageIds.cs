@@ -18,5 +18,7 @@ namespace SqlSense
         public const int ToggleEnabled = 0x0102;
         public const int ExpandWildcards = 0x0103;
         public const int ShowLog = 0x0104;
+        public const int OpenResultsInExcel = 0x0105;
+        public const int ScriptResultsAsInsert = 0x0106;
     }
 }

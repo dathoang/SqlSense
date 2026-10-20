@@ -40,6 +40,9 @@ namespace SqlSense.Editor
         /// <summary>Where a list opened before the schema arrived: reopen it there when the schema loads.</summary>
         private (int Version, int Caret)? _reopenWhenSchemaLoads;
 
+        /// <summary>Start of the word whose list closed for lack of matches; typing on in that word reopens it.</summary>
+        private ITrackingPoint _noMatchWordStart;
+
         public SqlCommandFilter(IWpfTextView view, ICompletionBroker broker)
         {
             _view = view;
@@ -146,7 +149,8 @@ namespace SqlSense.Editor
                         case VSConstants.VSStd2KCmdID.DELETE:
                         {
                             var hr = Forward(ref pguidCmdGroup, nCmdID, nCmdexecopt, pvaIn, pvaOut);
-                            Refilter();
+                            if (!HasSession && InNoMatchWord()) StartSession();
+                            else Refilter();
                             return hr;
                         }
 
@@ -225,6 +229,11 @@ namespace SqlSense.Editor
             {
                 Refilter();
             }
+            else if (settings.AutoTrigger && IsWordChar(ch) && InNoMatchWord())
+            {
+                // "k0" closed the list; after fixing it to "k9" it should come back.
+                StartSession();
+            }
             else if (settings.AutoTrigger && ShouldTrigger(ch))
             {
                 StartSession();
@@ -288,6 +297,19 @@ namespace SqlSense.Editor
         }
 
         private static bool IsWordChar(char c) => char.IsLetterOrDigit(c) || c == '_' || c == '@' || c == '#' || c == '$';
+
+        /// <summary>True while the caret is still inside the word whose list closed with no match.</summary>
+        private bool InNoMatchWord()
+        {
+            if (_noMatchWordStart == null) return false;
+            var caret = _view.Caret.Position.BufferPosition;
+            var start = _noMatchWordStart.GetPosition(caret.Snapshot);
+            var word = caret.Position;
+            while (word > 0 && IsWordChar(caret.Snapshot[word - 1])) word--;
+            if (word == start && caret.Position > start) return true;
+            _noMatchWordStart = null;
+            return false;
+        }
 
         private void StartSession()
         {
@@ -355,6 +377,7 @@ namespace SqlSense.Editor
                           $"matches={matches} of {set.TotalCount}");
                 if (matches == 0)
                 {
+                    _noMatchWordStart = caret.Snapshot.CreateTrackingPoint(set.ApplicableTo.GetStartPoint(caret.Snapshot).Position, PointTrackingMode.Negative);
                     session.Dismiss();
                     return;
                 }

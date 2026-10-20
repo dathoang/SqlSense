@@ -7,6 +7,7 @@ using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.TextManager.Interop;
 using SqlSense.Diagnostics;
 using SqlSense.Editor;
+using SqlSense.Results;
 using SqlSense.Schema;
 using SqlSense.Settings;
 using Task = System.Threading.Tasks.Task;
@@ -54,6 +55,8 @@ namespace SqlSense.Commands
                 EditorActions.Status(options.Enabled ? "SqlSense enabled." : "SqlSense disabled.");
             }, cmd => cmd.Text = SqlSenseSettings.Current.Enabled ? "Disable SqlSense" : "Enable SqlSense");
             Add(commands, PackageIds.ShowLog, (s, e) => LogPane.Show());
+            Add(commands, PackageIds.OpenResultsInExcel, (s, e) => ResultActions.OpenInExcel());
+            Add(commands, PackageIds.ScriptResultsAsInsert, (s, e) => ResultActions.ScriptAsInsert(ActiveSqlView(), ActiveTextView));
         }
 
         private static void Add(OleMenuCommandService service, int id, EventHandler invoke, Action<OleMenuCommand> beforeQueryStatus = null)
@@ -96,9 +99,15 @@ namespace SqlSense.Commands
         private static IWpfTextView ActiveSqlView()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            if (_textManager == null || _textManager.GetActiveView(1, null, out var vsView) != 0 || vsView == null) return null;
-            var view = _adapters.GetWpfTextView(vsView);
+            var view = ActiveTextView();
             return view != null && SqlDocument.IsSql(view.TextBuffer) ? view : null;
+        }
+
+        private static IWpfTextView ActiveTextView()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (_textManager == null || _textManager.GetActiveView(1, null, out var vsView) != 0 || vsView == null) return null;
+            return _adapters.GetWpfTextView(vsView);
         }
     }
 }
