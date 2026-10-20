@@ -20,5 +20,6 @@ namespace SqlSense
         public const int ShowLog = 0x0104;
         public const int OpenResultsInExcel = 0x0105;
         public const int ScriptResultsAsInsert = 0x0106;
+        public const int ImportSqlPromptStyle = 0x0107;
     }
 }

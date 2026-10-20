@@ -55,6 +55,7 @@ namespace SqlSense.Commands
                 EditorActions.Status(options.Enabled ? "SqlSense enabled." : "SqlSense disabled.");
             }, cmd => cmd.Text = SqlSenseSettings.Current.Enabled ? "Disable SqlSense" : "Enable SqlSense");
             Add(commands, PackageIds.ShowLog, (s, e) => LogPane.Show());
+            Add(commands, PackageIds.ImportSqlPromptStyle, (s, e) => StyleImport.Run(_package, _package.Options));
             Add(commands, PackageIds.OpenResultsInExcel, (s, e) => ResultActions.OpenInExcel());
             Add(commands, PackageIds.ScriptResultsAsInsert, (s, e) => ResultActions.ScriptAsInsert(ActiveSqlView(), ActiveTextView));
         }

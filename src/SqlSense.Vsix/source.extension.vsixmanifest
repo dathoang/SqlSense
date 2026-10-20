@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="SqlSense.Ssms22.6f2d0c55-3b1e-4f4e-9d7a-1c8a52b7e0a1" Version="1.0.9" Language="en-US" Publisher="SqlSense" />
+    <Identity Id="SqlSense.Ssms22.6f2d0c55-3b1e-4f4e-9d7a-1c8a52b7e0a1" Version="1.0.10" Language="en-US" Publisher="SqlSense" />
     <DisplayName>SqlSense for SSMS 22</DisplayName>
     <Description xml:space="preserve">Schema-aware T-SQL suggestions, autocomplete (aliases, JOIN conditions, INSERT/EXEC generators, SELECT * expansion, snippets) and a safe formatter for SQL Server Management Studio 22.</Description>
     <Tags>SQL;T-SQL;SSMS;IntelliSense;Formatter</Tags>

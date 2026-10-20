@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel;
 using Microsoft.VisualStudio.Shell;
 using SqlSense.Core.Completion;
@@ -87,6 +88,82 @@ namespace SqlSense.Settings
         [Category(Formatting), DisplayName("Indent JOINs under FROM")]
         public bool IndentJoins { get; set; } = true;
 
+        [Category(Formatting), DisplayName("Collapse statements shorter than"),
+         Description("SELECT/INSERT/UPDATE/DELETE/MERGE statements shorter than this many characters stay on one line. 0 = never.")]
+        public int CollapseStatementsShorterThan { get; set; }
+
+        [Category(Formatting), DisplayName("Collapse subqueries shorter than"),
+         Description("Subqueries in parentheses shorter than this many characters stay on one line. 0 = never.")]
+        public int CollapseSubqueriesShorterThan { get; set; }
+
+        [Category(Formatting), DisplayName("Collapse CASE shorter than"),
+         Description("CASE expressions shorter than this many characters stay on one line. 0 = never.")]
+        public int CollapseCaseShorterThan { get; set; }
+
+        [Category(Formatting), DisplayName("Collapse CREATE TABLE shorter than"),
+         Description("CREATE TABLE / DECLARE @t TABLE statements shorter than this many characters keep their column list on one line. 0 = never.")]
+        public int CollapseDdlShorterThan { get; set; }
+
+        [Category(Formatting), DisplayName("Align aliases"), Description("Line up the column aliases of a multi-line select list.")]
+        public bool AlignAliases { get; set; }
+
+        [Category(Formatting), DisplayName("Align comments"), Description("Line up end-of-line comments within a clause.")]
+        public bool AlignComments { get; set; }
+
+        [Category(Formatting), DisplayName("Subquery parentheses"),
+         Description("ExpandedSplit: '(' ends the line and ')' gets its own line. ExpandedToStatement: '(' also gets its own line.")]
+        public ParenthesisStyle SubqueryParenStyle { get; set; } = ParenthesisStyle.ExpandedSplit;
+
+        [Category(Formatting), DisplayName("CREATE TABLE parentheses"),
+         Description("ExpandedSplit: '(' ends the line and ')' gets its own line. ExpandedToStatement: '(' also gets its own line.")]
+        public ParenthesisStyle DdlParenStyle { get; set; } = ParenthesisStyle.ExpandedSplit;
+
+        [Category(Formatting), DisplayName("Spaces inside IN lists"), Description("Write IN ( 1, 2 ) instead of IN (1, 2).")]
+        public bool SpaceInsideInLists { get; set; }
+
+        /// <summary>Copies formatter settings (e.g. from an imported SQL Prompt style) into this page.</summary>
+        public void SetFormatOptions(FormatOptions o)
+        {
+            IndentSize = o.IndentSize;
+            KeywordCase = o.KeywordCase;
+            FunctionCase = o.FunctionCase;
+            DataTypeCase = o.DataTypeCase;
+            LeadingCommas = o.LeadingCommas;
+            OneItemPerLine = o.OneItemPerLine;
+            BreakOnAndOr = o.BreakOnAndOr;
+            IndentJoins = o.IndentJoins;
+            CollapseStatementsShorterThan = o.CollapseStatementsShorterThan;
+            CollapseSubqueriesShorterThan = o.CollapseSubqueriesShorterThan;
+            CollapseCaseShorterThan = o.CollapseCaseShorterThan;
+            CollapseDdlShorterThan = o.CollapseDdlShorterThan;
+            AlignAliases = o.AlignAliases;
+            AlignComments = o.AlignComments;
+            SubqueryParenStyle = o.SubqueryParenStyle;
+            DdlParenStyle = o.DdlParenStyle;
+            SpaceInsideInLists = o.SpaceInsideInLists;
+        }
+
+        public FormatOptions GetFormatOptions() => new FormatOptions
+        {
+            IndentSize = IndentSize < 1 ? 4 : IndentSize,
+            KeywordCase = KeywordCase,
+            FunctionCase = FunctionCase,
+            DataTypeCase = DataTypeCase,
+            LeadingCommas = LeadingCommas,
+            OneItemPerLine = OneItemPerLine,
+            BreakOnAndOr = BreakOnAndOr,
+            IndentJoins = IndentJoins,
+            CollapseStatementsShorterThan = Math.Max(0, CollapseStatementsShorterThan),
+            CollapseSubqueriesShorterThan = Math.Max(0, CollapseSubqueriesShorterThan),
+            CollapseCaseShorterThan = Math.Max(0, CollapseCaseShorterThan),
+            CollapseDdlShorterThan = Math.Max(0, CollapseDdlShorterThan),
+            AlignAliases = AlignAliases,
+            AlignComments = AlignComments,
+            SubqueryParenStyle = SubqueryParenStyle,
+            DdlParenStyle = DdlParenStyle,
+            SpaceInsideInLists = SpaceInsideInLists,
+        };
+
         public override void LoadSettingsFromStorage()
         {
             base.LoadSettingsFromStorage();
@@ -122,17 +199,7 @@ namespace SqlSense.Settings
                     SuggestJoinConditions = SuggestJoinConditions,
                     UppercaseKeywords = UppercaseKeywords,
                 },
-                Format = new FormatOptions
-                {
-                    IndentSize = IndentSize < 1 ? 4 : IndentSize,
-                    KeywordCase = KeywordCase,
-                    FunctionCase = FunctionCase,
-                    DataTypeCase = DataTypeCase,
-                    LeadingCommas = LeadingCommas,
-                    OneItemPerLine = OneItemPerLine,
-                    BreakOnAndOr = BreakOnAndOr,
-                    IndentJoins = IndentJoins,
-                },
+                Format = GetFormatOptions(),
             });
         }
     }

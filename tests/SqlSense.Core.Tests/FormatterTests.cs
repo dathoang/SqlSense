@@ -154,12 +154,145 @@ namespace SqlSense.Core.Tests
         [InlineData("select -1, - 2, 3 - 4, a*-b from t")]
         [InlineData("delete from t where id = 1; delete t from t join u on u.id = t.id")]
         [InlineData("if exists (select 1 from t) begin select 1 end else if 1 = 2 select 2 else begin select 3 end")]
+        [InlineData("select a, b from t where c in (1, 2, 3) and d not in (select x from u)")]
+        [InlineData("select case when a = 1 then 'one' else 'many' end as label, b bb, top1 from t -- c1\nwhere x = 1 -- c2")]
+        [InlineData("create table dbo.T (Id int not null, Name nvarchar(50) null); declare @t table (a int)")]
+        [InlineData("select top 10 a, top (5) b from t; select distinct a as x, (select max(b) from u where u.id = t.id) as m from t")]
+        [InlineData("if @a = 1 select a from t else begin update t set a = 1 where b = 2; delete from t where c = 3 end")]
+        [InlineData("with x as (select a from t) insert into u (a) select a from x")]
         public void Formatting_never_changes_tokens_and_is_idempotent(string sql)
         {
-            var once = Fmt(sql);
-            Assert.Null(SqlFormatter.Verify(sql, once));
-            var twice = Fmt(once);
-            Assert.Equal(once, twice);
+            foreach (var f in new[] { _f, new SqlFormatter(PromptLike()) })
+            {
+                var once = f.Format(sql);
+                _out.WriteLine(once.Text);
+                Assert.True(once.Success, once.Error);
+                Assert.Null(SqlFormatter.Verify(sql, once.Text));
+                Assert.Equal(once.Text, f.Format(once.Text).Text);
+            }
+        }
+
+        private static FormatOptions PromptLike() => new FormatOptions
+        {
+            NewLine = "\n",
+            KeywordCase = KeywordCasing.Lower,
+            FunctionCase = KeywordCasing.Lower,
+            LeadingCommas = true,
+            AlignAliases = true,
+            AlignComments = true,
+            CollapseStatementsShorterThan = 75,
+            CollapseSubqueriesShorterThan = 75,
+            CollapseCaseShorterThan = 75,
+            CollapseDdlShorterThan = 75,
+            DdlParenStyle = ParenthesisStyle.ExpandedToStatement,
+            SpaceInsideInLists = true,
+        };
+
+        private static string Fmt(FormatOptions o, string sql)
+        {
+            var r = new SqlFormatter(o).Format(sql);
+            Assert.True(r.Success, r.Error);
+            return r.Text;
+        }
+
+        [Fact]
+        public void Short_statements_collapse_to_one_line()
+        {
+            var o = new FormatOptions { NewLine = "\n", CollapseStatementsShorterThan = 75 };
+            Assert.Equal("SELECT a, b FROM dbo.T t INNER JOIN u ON u.id = t.id WHERE a = 1;\nSELECT 1",
+                Fmt(o, "select a, b from dbo.T t inner join u on u.id = t.id where a = 1; select 1"));
+            Assert.Equal("SELECT a\nFROM dbo.SomeRatherLongTableName\nWHERE SomeColumn = 1\n      AND OtherColumn = 2",
+                Fmt(o, "select a from dbo.SomeRatherLongTableName where SomeColumn = 1 and OtherColumn = 2"));
+        }
+
+        [Fact]
+        public void Leading_commas_are_not_used_inside_a_collapsed_statement()
+        {
+            var o = new FormatOptions { NewLine = "\n", CollapseStatementsShorterThan = 75, LeadingCommas = true };
+            Assert.Equal("SELECT a, b FROM t", Fmt(o, "select a, b from t"));
+        }
+
+        [Fact]
+        public void Short_subqueries_collapse()
+        {
+            var o = new FormatOptions { NewLine = "\n", CollapseSubqueriesShorterThan = 40 };
+            Assert.Equal("SELECT *\nFROM dbo.A\nWHERE id IN (SELECT id FROM dbo.B WHERE x = 1)",
+                Fmt(o, "select * from dbo.A where id in (select id from dbo.B where x = 1)"));
+        }
+
+        [Fact]
+        public void Short_case_collapses()
+        {
+            // The statement is too long to collapse; its CASE still is (ELSE inside CASE doesn't end the statement).
+            var o = new FormatOptions { NewLine = "\n", CollapseCaseShorterThan = 75, CollapseStatementsShorterThan = 40 };
+            Assert.Equal("SELECT CASE WHEN a = 1 THEN 'one' ELSE 'many' END AS label\nFROM t",
+                Fmt(o, "select case when a = 1 then 'one' else 'many' end as label from t"));
+        }
+
+        [Fact]
+        public void Statement_with_a_comment_is_not_collapsed()
+        {
+            var o = new FormatOptions { NewLine = "\n", CollapseStatementsShorterThan = 75 };
+            Assert.Equal("SELECT a, -- note\n       b\nFROM t", Fmt(o, "select a, -- note\n b from t"));
+        }
+
+        [Fact]
+        public void Aliases_are_aligned()
+        {
+            var o = new FormatOptions { NewLine = "\n", AlignAliases = true };
+            var expected =
+                "SELECT c.CustomerID AS id,\n" +
+                "       c.Name       name,\n" +
+                "       COUNT(*)     AS n,\n" +
+                "       TOP1\n" +
+                "FROM t";
+            Assert.Equal(expected, Fmt(o, "select c.CustomerID as id, c.Name name, count(*) as n, TOP1 from t"));
+        }
+
+        [Fact]
+        public void Top_is_not_mistaken_for_an_alias()
+        {
+            var o = new FormatOptions { NewLine = "\n", AlignAliases = true };
+            Assert.Equal("SELECT TOP 10 a,\n       b AS bb\nFROM t", Fmt(o, "select top 10 a, b as bb from t"));
+        }
+
+        [Fact]
+        public void Trailing_comments_are_aligned()
+        {
+            var o = new FormatOptions { NewLine = "\n", AlignComments = true };
+            Assert.Equal("SELECT a,        -- first\n       bbbbbbbb, -- second\n       c\nFROM t",
+                Fmt(o, "select a, -- first\n bbbbbbbb, -- second\n c from t"));
+        }
+
+        [Fact]
+        public void Ddl_parentheses_expanded_to_statement()
+        {
+            var o = new FormatOptions { NewLine = "\n", DdlParenStyle = ParenthesisStyle.ExpandedToStatement };
+            Assert.Equal("CREATE TABLE dbo.T\n(\n    Id int NOT NULL,\n    Name nvarchar(50) NULL\n);",
+                Fmt(o, "create table dbo.T (Id int not null, Name nvarchar(50) null);"));
+        }
+
+        [Fact]
+        public void Short_create_table_collapses()
+        {
+            var o = new FormatOptions { NewLine = "\n", CollapseDdlShorterThan = 75, DdlParenStyle = ParenthesisStyle.ExpandedToStatement };
+            Assert.Equal("CREATE TABLE dbo.T (Id int NOT NULL, Name nvarchar(50) NULL);",
+                Fmt(o, "create table dbo.T (Id int not null, Name nvarchar(50) null);"));
+        }
+
+        [Fact]
+        public void Subquery_parentheses_expanded_to_statement()
+        {
+            var o = new FormatOptions { NewLine = "\n", SubqueryParenStyle = ParenthesisStyle.ExpandedToStatement };
+            Assert.Equal("SELECT *\nFROM dbo.A\nWHERE id IN\n(\n    SELECT id\n    FROM dbo.B\n)",
+                Fmt(o, "select * from dbo.A where id in (select id from dbo.B)"));
+        }
+
+        [Fact]
+        public void In_lists_get_inner_spaces()
+        {
+            var o = new FormatOptions { NewLine = "\n", SpaceInsideInLists = true };
+            Assert.Equal("SELECT a\nFROM t\nWHERE a IN ( 1, 2, 3 )\n      AND f(b) = 1", Fmt(o, "select a from t where a in (1,2,3) and f(b) = 1"));
         }
 
         [Fact]

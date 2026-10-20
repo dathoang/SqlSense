@@ -64,6 +64,7 @@
     <Compile Include="Schema\SchemaService.cs" />
     <Compile Include="Settings\OptionsPage.cs" />
     <Compile Include="Settings\SqlSenseSettings.cs" />
+    <Compile Include="Settings\StyleImport.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="source.extension.vsixmanifest">

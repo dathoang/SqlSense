@@ -67,6 +67,13 @@
           <CanonicalName>SqlSense.ShowLog</CanonicalName>
         </Strings>
       </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidImportSqlPromptStyle" priority="0x0105" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseMenuGroup" />
+        <Strings>
+          <ButtonText>Import SQL Prompt Style...</ButtonText>
+          <CanonicalName>SqlSense.ImportSqlPromptStyle</CanonicalName>
+        </Strings>
+      </Button>
       <Button guid="guidSqlSenseCmdSet" id="cmdidOpenResultsInExcel" priority="0x0100" type="Button">
         <Parent guid="guidSqlSenseCmdSet" id="SqlSenseResultsMenuGroup" />
         <Strings>
@@ -114,6 +121,7 @@
       <IDSymbol name="cmdidShowLog" value="0x0104" />
       <IDSymbol name="cmdidOpenResultsInExcel" value="0x0105" />
       <IDSymbol name="cmdidScriptResultsAsInsert" value="0x0106" />
+      <IDSymbol name="cmdidImportSqlPromptStyle" value="0x0107" />
       <IDSymbol name="SqlSenseResultsMenuGroup" value="0x1030" />
       <IDSymbol name="SqlSenseGridContextGroup" value="0x1040" />
     </GuidSymbol>

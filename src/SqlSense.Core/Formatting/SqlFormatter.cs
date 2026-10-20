@@ -44,6 +44,24 @@ namespace SqlSense.Core.Formatting
             "TRAN", "TRANSACTION", "DISTRIBUTED", "DIALOG", "CONVERSATION",
         };
 
+        private static readonly HashSet<string> CollapsibleStatements = new HashSet<string>(Ci)
+        {
+            "SELECT", "INSERT", "UPDATE", "DELETE", "MERGE", "WITH",
+        };
+
+        private static readonly HashSet<string> AliasFollowers = new HashSet<string>(Ci)
+        {
+            "FROM", "INTO", "WHERE", "UNION", "EXCEPT", "INTERSECT", "ORDER", "GROUP", "HAVING", "OPTION",
+        };
+
+        // Alignment markers live in the Private Use Area while formatting and are replaced by padding at the end.
+        private const char AliasMark = '';
+        private const char CommentMark = '';
+        private const char GroupBase = '';
+        private const int GroupCount = 0xE00;
+
+        private static bool IsMarker(char c) => c >= '' && c <= '';
+
         private static readonly HashSet<string> ListClauses = new HashSet<string>(Ci)
         {
             "SELECT", "GROUP BY", "ORDER BY", "SET", "FROM", "VALUES", "OUTPUT", "DECLARE", "PARTITION BY",
@@ -125,6 +143,9 @@ namespace SqlSense.Core.Formatting
             public bool PendingBody;
             public bool AwaitStatement = true;
             public int CaseColumn;
+            public int StatementStartSig;
+            public int AlignGroup;
+            public bool SpaceInside;
 
             public bool IsStatementLevel => Kind == FrameKind.Root || Kind == FrameKind.Block || Kind == FrameKind.Subquery;
         }
@@ -138,6 +159,11 @@ namespace SqlSense.Core.Formatting
             private readonly List<int> _nlBefore;     // newlines in the whitespace before each _all token
             private readonly List<SqlToken> _sig;     // significant tokens
             private readonly Dictionary<SqlToken, int> _sigIndex = new Dictionary<SqlToken, int>();
+            private readonly Dictionary<SqlToken, int> _allIndex = new Dictionary<SqlToken, int>();
+            private readonly bool _markersAllowed;
+            private int _cur;             // significant index of the token being written
+            private int _compactEnd = -1; // last significant index of the region kept on one line
+            private int _groups;
             private readonly HashSet<int> _statementStarts = new HashSet<int>();
             private readonly Stack<Frame> _frames = new Stack<Frame>();
             private readonly StringBuilder _sb = new StringBuilder();
@@ -171,6 +197,8 @@ namespace SqlSense.Core.Formatting
                     if (t.Kind == TokenKind.Comment && t.Text.EndsWith("\n", StringComparison.Ordinal)) nl = 1;
                 }
                 _sig = _all.Where(t => !t.IsTrivia).ToList();
+                for (var i = 0; i < _all.Count; i++) _allIndex[_all[i]] = i;
+                _markersAllowed = (o.AlignAliases || o.AlignComments) && !sql.Any(IsMarker);
                 for (var i = 0; i < _sig.Count; i++) _sigIndex[_sig[i]] = i;
                 foreach (var (start, _) in StatementAnalysis.SplitStatements(_sig)) _statementStarts.Add(start);
             }
@@ -187,17 +215,20 @@ namespace SqlSense.Core.Formatting
                     var t = _all[k];
                     if (t.Kind == TokenKind.Comment) { WriteComment(t, _nlBefore[k]); continue; }
                     var s = _sigIndex[t];
-                    if (ShouldSkip(t, s)) continue;
-                    Token(t, s, _nlBefore[k]);
+                    _cur = s;
+                    if (!ShouldSkip(t, s)) Token(t, s, _nlBefore[k]);
+                    if (_compactEnd >= 0 && s >= _compactEnd) _compactEnd = -1;
                 }
 
-                var text = TrimTrailingSpaces(_sb.ToString());
+                var text = TrimTrailingSpaces(ResolveAlignment(_sb.ToString()));
                 var trailing = _sql.Length - _sql.TrimEnd().Length;
                 if (trailing > 0 && _sql.TrimEnd(' ', '\t').EndsWith("\n", StringComparison.Ordinal)) text += _o.NewLine;
                 return text;
             }
 
             private Frame Top => _frames.Peek();
+
+            private bool InCompact => _compactEnd >= 0 && _cur <= _compactEnd;
 
             private SqlToken Sig(int i) => i >= 0 && i < _sig.Count ? _sig[i] : null;
 
@@ -282,6 +313,11 @@ namespace SqlSense.Core.Formatting
                 if (u == "CASE" && t.Kind == TokenKind.Keyword)
                 {
                     SpaceIfNeeded(t, s);
+                    if (!InCompact && _o.CollapseCaseShorterThan > 0)
+                    {
+                        var end = MatchingCaseEnd(s);
+                        if (end > s && Measure(s, end) < _o.CollapseCaseShorterThan) _compactEnd = end;
+                    }
                     var column = _col;
                     Write(Case(t, s));
                     _frames.Push(new Frame { Kind = FrameKind.Case, CaseColumn = column });
@@ -309,6 +345,7 @@ namespace SqlSense.Core.Formatting
 
                 if (t.IsWord && u == "BETWEEN") top.InBetween = true;
 
+                if (_o.AlignAliases && IsSelectAlias(t, s, top)) Mark(AliasMark, top.AlignGroup);
                 SpaceIfNeeded(t, s);
                 Write(Case(t, s));
                 Done(t);
@@ -331,6 +368,13 @@ namespace SqlSense.Core.Formatting
                 if (afterElse) indent = top.IfIndent >= 0 ? top.IfIndent : top.Indent;
 
                 top.StatementIndent = indent;
+                top.StatementStartSig = s;
+                top.AlignGroup = ++_groups;
+                if (!InCompact && _o.CollapseStatementsShorterThan > 0 && top.Kind != FrameKind.Subquery && CollapsibleStatements.Contains(u))
+                {
+                    var end = StatementEnd(s);
+                    if (Measure(s, end) < _o.CollapseStatementsShorterThan) _compactEnd = end;
+                }
                 top.FirstWord = u;
                 top.Clause = u == "SELECT" || u == "SET" || u == "DECLARE" || u == "UPDATE" || u == "DELETE" || u == "INSERT" || u == "WITH" ? u : null;
                 top.InBetween = false;
@@ -452,6 +496,7 @@ namespace SqlSense.Core.Formatting
                         NewLineAt(top.JoinIndent + _o.IndentSize, false);
                         Write(Case(t, s));
                         top.Clause = "ON";
+                        top.AlignGroup = ++_groups;
                         top.ItemColumn = _col + 1;
                         top.InBetween = false;
                         Done(t);
@@ -480,6 +525,7 @@ namespace SqlSense.Core.Formatting
                                 k++;
                             }
                             top.Clause = "JOIN";
+                            top.AlignGroup = ++_groups;
                             top.JoinIndent = indent;
                             top.ItemColumn = -1;
                             Done(t);
@@ -492,6 +538,7 @@ namespace SqlSense.Core.Formatting
                 Write(t.Kind == TokenKind.Identifier ? KeywordCase(t.Text) : Case(t, s));
                 if (words == 2) { Write(" " + KeywordCase(next.Text)); _skipNext = next; }
                 top.Clause = clause;
+                top.AlignGroup = ++_groups;
                 top.ItemColumn = _col + 1;
                 top.InBetween = false;
                 Done(t);
@@ -516,10 +563,23 @@ namespace SqlSense.Core.Formatting
             {
                 var next = Sig(s + 1);
                 var prev = Sig(s - 1);
-                SpaceIfNeeded(t, s);
+                var isSubquery = next != null && (next.Is("SELECT") || next.Is("WITH") && Sig(s + 2) != null && Sig(s + 2).IsName);
+                var isColumnList = !isSubquery && IsColumnDefinitionList(s);
+                if (!InCompact && (isSubquery || isColumnList))
+                {
+                    var limit = isSubquery ? _o.CollapseSubqueriesShorterThan : _o.CollapseDdlShorterThan;
+                    var close = MatchingParen(s);
+                    var from = isSubquery ? s : Math.Min(s, StatementFrame().StatementStartSig);
+                    if (limit > 0 && close > s && Measure(from, close) < limit) _compactEnd = close;
+                }
+                var style = isSubquery ? _o.SubqueryParenStyle : _o.DdlParenStyle;
+                if ((isSubquery || isColumnList) && style == ParenthesisStyle.ExpandedToStatement && !InCompact)
+                    NewLineAt(_lineIndent, false);
+                else
+                    SpaceIfNeeded(t, s);
                 Write("(");
                 var lineIndent = _lineIndent;
-                if (next != null && (next.Is("SELECT") || next.Is("WITH") && Sig(s + 2) != null && Sig(s + 2).IsName))
+                if (isSubquery)
                 {
                     var f = new Frame
                     {
@@ -531,7 +591,7 @@ namespace SqlSense.Core.Formatting
                     };
                     _frames.Push(f);
                 }
-                else if (IsColumnDefinitionList(s))
+                else if (isColumnList)
                 {
                     _frames.Push(new Frame
                     {
@@ -539,12 +599,19 @@ namespace SqlSense.Core.Formatting
                         Indent = lineIndent + _o.IndentSize,
                         OpenLineIndent = lineIndent,
                         AwaitStatement = false,
+                        AlignGroup = ++_groups,
                     });
                     NewLineAt(lineIndent + _o.IndentSize, false);
                 }
                 else
                 {
-                    _frames.Push(new Frame { Kind = FrameKind.Paren, AwaitStatement = false });
+                    var f = new Frame { Kind = FrameKind.Paren, AwaitStatement = false };
+                    if (_o.SpaceInsideInLists && prev != null && prev.Is("IN"))
+                    {
+                        Write(" ");
+                        f.SpaceInside = true;
+                    }
+                    _frames.Push(f);
                 }
                 Done(t);
             }
@@ -558,8 +625,9 @@ namespace SqlSense.Core.Formatting
                     if (popped.Kind == FrameKind.Subquery || popped.Kind == FrameKind.ColumnList || popped.Kind == FrameKind.Paren) break;
                     popped = null;
                 }
-                if (popped != null && (popped.Kind == FrameKind.Subquery || popped.Kind == FrameKind.ColumnList))
+                if (popped != null && (popped.Kind == FrameKind.Subquery || popped.Kind == FrameKind.ColumnList) && !InCompact)
                     NewLineAt(popped.OpenLineIndent, false);
+                if (popped != null && popped.SpaceInside && !_atLineStart) Write(" ");
                 Write(")");
                 Done(t);
             }
@@ -585,6 +653,11 @@ namespace SqlSense.Core.Formatting
 
             private void PlaceComma(int itemColumn)
             {
+                if (InCompact)
+                {
+                    Write(",");
+                    return;
+                }
                 if (_o.LeadingCommas)
                 {
                     NewLineAt(Math.Max(0, itemColumn - 2), false);
@@ -621,6 +694,7 @@ namespace SqlSense.Core.Formatting
                 if (nlBefore == 0 && !_forceNewLine && _atLineStart && _prevWritten != null && TryUndoLineBreak(out var pendingIndent))
                 {
                     // A trailing comment ("a, -- note") stays at the end of the line it was on.
+                    if (_o.AlignComments) Mark(CommentMark, CommentGroup());
                     Write(" " + text);
                     NewLineAt(pendingIndent, false);
                     _forceNewLine = false;
@@ -638,6 +712,7 @@ namespace SqlSense.Core.Formatting
                 }
                 else if (!_atLineStart)
                 {
+                    if (isLineComment && _o.AlignComments) Mark(CommentMark, CommentGroup());
                     Write(" ");
                 }
                 Write(text);
@@ -662,13 +737,18 @@ namespace SqlSense.Core.Formatting
             {
                 var i = _sb.Length - 1;
                 var n = 0;
-                while (i >= 0 && _sb[i] != '\n') { i--; n++; }
+                while (i >= 0 && _sb[i] != '\n')
+                {
+                    if (!IsMarker(_sb[i])) n++;
+                    i--;
+                }
                 return n;
             }
 
             private int CurrentLineIndent()
             {
-                var i = _sb.Length - CurrentColumn();
+                var i = _sb.Length;
+                while (i > 0 && _sb[i - 1] != '\n') i--;
                 var n = 0;
                 while (i + n < _sb.Length && _sb[i + n] == ' ') n++;
                 return n;
@@ -700,6 +780,7 @@ namespace SqlSense.Core.Formatting
             private void SpaceIfNeeded(SqlToken t, int s)
             {
                 if (_atLineStart) return;
+                if (_sb.Length > 0 && _sb[_sb.Length - 1] == ' ') return;
                 if (_pendingSpaceAfterLeadingComma) { _pendingSpaceAfterLeadingComma = false; Write(" "); return; }
                 var p = _prevWritten;
                 if (p == null) return;
@@ -881,6 +962,15 @@ namespace SqlSense.Core.Formatting
                     // Very first token: stay on the first line.
                     return;
                 }
+                if (InCompact)
+                {
+                    // Inside a collapsed region a line break becomes a single space.
+                    if (_atLineStart) return;
+                    TrimLineEnd();
+                    _col = CurrentColumn();
+                    if (_sb.Length > 0 && _sb[_sb.Length - 1] != '(') Write(" ");
+                    return;
+                }
                 if (_atLineStart)
                 {
                     // Re-indent the empty current line.
@@ -930,6 +1020,168 @@ namespace SqlSense.Core.Formatting
                     lines[i] = cr ? l + "\r" : l;
                 }
                 return string.Join("\n", lines).TrimEnd(' ', '\t', '\r', '\n');
+            }
+
+            // ----- collapsing -----
+
+            private Frame StatementFrame() => _frames.First(f => f.IsStatementLevel);
+
+            /// <summary>Last significant index of the statement starting at <paramref name="s"/>.</summary>
+            private int StatementEnd(int s)
+            {
+                var depth = 0;
+                var caseDepth = 0;
+                for (var k = s; k < _sig.Count; k++)
+                {
+                    var t = _sig[k];
+                    if (k > s && depth == 0 && (_statementStarts.Contains(k) || t.Kind == TokenKind.Go)) return k - 1;
+                    if (t.Text == "(") depth++;
+                    else if (t.Text == ")")
+                    {
+                        if (depth == 0) return k - 1;
+                        depth--;
+                    }
+                    else if (t.Text == ";" && depth == 0) return k;
+                    else if (t.Kind == TokenKind.Keyword)
+                    {
+                        if (t.Is("CASE")) caseDepth++;
+                        else if (t.Is("END") && caseDepth > 0) caseDepth--;
+                        else if (k > s && depth == 0 && caseDepth == 0 && (t.Is("END") || t.Is("ELSE") || t.Is("BEGIN"))) return k - 1;
+                    }
+                }
+                return _sig.Count - 1;
+            }
+
+            private int MatchingParen(int s)
+            {
+                var depth = 0;
+                for (var k = s; k < _sig.Count; k++)
+                {
+                    if (_sig[k].Text == "(") depth++;
+                    else if (_sig[k].Text == ")" && --depth == 0) return k;
+                }
+                return -1;
+            }
+
+            private int MatchingCaseEnd(int s)
+            {
+                var depth = 0;
+                for (var k = s; k < _sig.Count; k++)
+                {
+                    if (_sig[k].Kind != TokenKind.Keyword) continue;
+                    if (_sig[k].Is("CASE")) depth++;
+                    else if (_sig[k].Is("END") && --depth == 0) return k;
+                }
+                return -1;
+            }
+
+            /// <summary>Length of tokens a..b written on one line; int.MaxValue when a comment is in between.</summary>
+            private int Measure(int a, int b)
+            {
+                if (b < a) return int.MaxValue;
+                for (var k = _allIndex[_sig[a]]; k <= _allIndex[_sig[b]]; k++)
+                    if (_all[k].Kind == TokenKind.Comment) return int.MaxValue;
+                var n = 0;
+                for (var k = a; k <= b; k++)
+                {
+                    if (k > a && NeedsSpace(_sig[k - 1], _sig[k])) n++;
+                    n += _sig[k].Text.Length;
+                }
+                return n;
+            }
+
+            private static bool NeedsSpace(SqlToken p, SqlToken t)
+            {
+                var tt = t.Text;
+                var pt = p.Text;
+                if (tt == "," || tt == ";" || tt == ")" || tt == "." || tt == "::") return false;
+                if (pt == "(" || pt == "." || pt == "::") return false;
+                return !(tt == "(" && (p.IsName || p.Kind == TokenKind.Keyword && SqlVocabulary.FunctionNames.Contains(pt)));
+            }
+
+            // ----- alignment -----
+
+            private int CommentGroup() => Top.AlignGroup != 0 ? Top.AlignGroup : StatementFrame().AlignGroup;
+
+            private void Mark(char kind, int group)
+            {
+                if (!_markersAllowed || InCompact || _atLineStart) return;
+                _sb.Append(kind).Append((char)(GroupBase + group % GroupCount));
+            }
+
+            /// <summary>An AS or bare alias after an item of a one-item-per-line select list.</summary>
+            private bool IsSelectAlias(SqlToken t, int s, Frame top)
+            {
+                if (!top.IsStatementLevel || top.Clause != "SELECT" || !_o.OneItemPerLine || InCompact) return false;
+                var prev = Sig(s - 1);
+                if (prev == null || prev.Is("SELECT")) return false;
+                if (t.Kind == TokenKind.Keyword) return t.Is("AS");
+                if (!t.IsName) return false;
+                var next = Sig(s + 1);
+                if (next != null && next.Text != "," && next.Text != ";" && !(next.IsWord && AliasFollowers.Contains(next.Text))
+                    && !_statementStarts.Contains(s + 1))
+                    return false;
+                if (prev.Is("END")) return true;
+                if (prev.Kind == TokenKind.Keyword || prev.Kind == TokenKind.Operator || prev.Text == "," || prev.Text == ".") return false;
+                var before = Sig(s - 2);
+                if (prev.Kind == TokenKind.NumberLiteral && before != null && before.Is("TOP")) return false;
+                if (prev.Text == ")")
+                {
+                    // TOP (10) col is not an alias.
+                    var depth = 0;
+                    for (var k = s - 1; k >= 0; k--)
+                    {
+                        if (_sig[k].Text == ")") depth++;
+                        else if (_sig[k].Text == "(" && --depth == 0) return !(k > 0 && _sig[k - 1].Is("TOP"));
+                    }
+                    return false;
+                }
+                return prev.IsName || prev.Kind == TokenKind.Variable || prev.Kind == TokenKind.StringLiteral || prev.Kind == TokenKind.NumberLiteral;
+            }
+
+            private static string ResolveAlignment(string text)
+            {
+                if (text.IndexOf(AliasMark) < 0 && text.IndexOf(CommentMark) < 0) return text;
+                var lines = text.Split('\n');
+                Align(lines, AliasMark);
+                Align(lines, CommentMark);
+                return string.Join("\n", lines);
+            }
+
+            /// <summary>Replaces each marker of <paramref name="kind"/> by the padding that lines up its group.</summary>
+            private static void Align(string[] lines, char kind)
+            {
+                var max = new Dictionary<char, int>();
+                var count = new Dictionary<char, int>();
+                foreach (var line in lines)
+                {
+                    for (var i = line.IndexOf(kind); i >= 0 && i + 1 < line.Length; i = line.IndexOf(kind, i + 2))
+                    {
+                        var g = line[i + 1];
+                        var col = VisibleLength(line, i);
+                        max[g] = max.TryGetValue(g, out var m) ? Math.Max(m, col) : col;
+                        count[g] = count.TryGetValue(g, out var c) ? c + 1 : 1;
+                    }
+                }
+                for (var l = 0; l < lines.Length; l++)
+                {
+                    var line = lines[l];
+                    for (var i = line.IndexOf(kind); i >= 0 && i + 1 < line.Length; i = line.IndexOf(kind))
+                    {
+                        var g = line[i + 1];
+                        var pad = count[g] > 1 ? max[g] - VisibleLength(line, i) : 0;
+                        line = line.Substring(0, i) + new string(' ', pad) + line.Substring(i + 2);
+                    }
+                    lines[l] = line;
+                }
+            }
+
+            private static int VisibleLength(string line, int end)
+            {
+                var n = 0;
+                for (var i = 0; i < end; i++)
+                    if (!IsMarker(line[i]) && line[i] != '\r') n++;
+                return n;
             }
 
             // Tokens consumed as part of a multi-word keyword are skipped by the main loop.
