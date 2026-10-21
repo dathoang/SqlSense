@@ -24,6 +24,9 @@ binaries are used. The parser is Microsoft's open-source `Microsoft.SqlServer.Tr
 - `JOIN … ON` offers foreign-key conditions (`soh.CustomerID = c.CustomerID`).
 - `INSERT INTO` + table inserts the column list (no identity/computed columns) and a typed `VALUES` template.
 - `EXEC` + procedure inserts its parameters with typed defaults.
+- `ALTER PROCEDURE` / `FUNCTION` / `VIEW` / `TRIGGER` lists objects of that kind (also after `DROP … [IF EXISTS]` and
+  `CREATE OR ALTER`); in an empty batch, picking one after `ALTER` loads its definition in the background and replaces
+  the statement with it (CREATE → ALTER). `CREATE TRIGGER t ON ` lists tables and views.
 - Tab after `*` (or `alias.*`) expands to the column list; Ctrl+B, Ctrl+W does the same from anywhere on the line.
 - Auto-closes `(` `[` `'` and types over the closer.
 - Snippets: `ssf`, `st100`, `scf`, `ii`, `uu`, `df`, `ij`, `lj`, `bt`, `tc`, `cte`, `cur`, `cp`, `cv`, `ct`, `tt`, … then Tab.
@@ -36,30 +39,47 @@ binaries are used. The parser is Microsoft's open-source `Microsoft.SqlServer.Tr
 - **Safe by construction:** after formatting, the token stream is compared with the original. If anything other than
   whitespace or word case would change, nothing is applied and the reason is shown in the status bar.
 
-**Menu:** Tools › SqlSense (Format SQL, Expand Wildcard, Refresh Suggestions, Enable/Disable, Show Log).
-**Options:** Tools › Options › SqlSense › General.
+**Results grid** (right-click)
+- Open Results in Excel: the grid (or the selected cells) as a typed `.xlsx`.
+- Script Results as INSERT: `INSERT … VALUES` statements in a new query window, target table guessed from the query.
+
+**Connection colors**
+- Each query window's tab, editor frame and status bar are colored by server/database, from rules in
+  `Documents\SqlSense\ConnectionColors.txt` (`server[/database] = color`, wildcards). The tab's right-click menu
+  › Connection Color sets a rule for the window's database or server.
+
+**Menu:** Tools › SqlSense (Format SQL, Expand Wildcard, Refresh Suggestions, Enable/Disable, Show Log,
+Import SQL Prompt Style, Edit Connection Colors).
+**Options:** Tools › Options › SqlSense (General, Suggestions, Formatting, Connection Colors).
+
+User guide (Vietnamese), from install to the main use cases: [deploy/HUONG-DAN-SU-DUNG.md](deploy/HUONG-DAN-SU-DUNG.md).
 
 ## Install
 
-Close SSMS 22, then install into the SSMS instance (double-clicking the `.vsix` may pick Visual Studio instead):
+Get `SqlSense-<version>.zip` (built below), unzip it, close SSMS 22 and double-click `Install.cmd`. It finds every
+SSMS 22 instance with vswhere and runs SSMS's own `VSIXInstaller.exe` (per user, no admin rights). Double-clicking
+the `.vsix` itself may install into Visual Studio instead. `Uninstall.cmd` removes it.
 
-```powershell
-& "C:\Program Files\Microsoft SQL Server Management Studio 22\Release\Common7\IDE\VSIXInstaller.exe" /instanceIds:04cbd0c1 "dist\SqlSense.vsix"
-```
+Manual install: `VSIXInstaller.exe /instanceIds:<id> SqlSense.vsix` from SSMS's `Common7\IDE`, where `<id>` is
+`InstallationID` in `SSMS.isolation.ini`; uninstall with `/uninstall:SqlSense.Ssms22.6f2d0c55-3b1e-4f4e-9d7a-1c8a52b7e0a1`.
 
-`04cbd0c1` is this machine's SSMS 22 instance id (from `SSMS.isolation.ini`). To uninstall, use
-Extensions › Manage Extensions in SSMS, or `VSIXInstaller.exe /instanceIds:04cbd0c1 /uninstall:SqlSense.Ssms22.6f2d0c55-3b1e-4f4e-9d7a-1c8a52b7e0a1`.
-
-**Turn off SSMS's built-in IntelliSense** (Tools › Options › Text Editor › Transact-SQL › IntelliSense) so two lists
-don't open at once. SQL Prompt does the equivalent automatically.
+**Turn off SSMS's built-in IntelliSense** so two lists don't open at once. SqlSense does this by default
+(Options › SqlSense › General); otherwise Tools › Options › Text Editor › Transact-SQL › IntelliSense.
 
 ## Build
 
 Requires Visual Studio 2026 (or 2022) with the *Visual Studio extension development* workload and the .NET SDK.
 
 ```powershell
-& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" src\SqlSense.Vsix\SqlSense.Vsix.csproj -restore -p:Configuration=Release
+.\deploy\Build-Package.ps1 -Version 1.2.0           # tests, Rebuild Release, dist\SqlSense-1.2.0.zip
+.\deploy\Build-Package.ps1 -Version 1.2.0 -Install  # ... and install into this machine's SSMS 22
+```
+
+Raise the version for every release: VSIXInstaller won't install the same version over itself. By hand:
+
+```powershell
 dotnet test tests\SqlSense.Core.Tests
+& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" src\SqlSense.Vsix\SqlSense.Vsix.csproj -restore -t:Rebuild -p:Configuration=Release
 ```
 
 When the checkout path is long (over 100 characters) `Directory.Build.props` sends bin/obj to `%TEMP%\ssb` to avoid
@@ -71,7 +91,8 @@ Windows path-length failures; otherwise output is in the usual bin/obj folders.
 |---|---|
 | `src/SqlSense.Core` | Host-independent engine (netstandard2.0): lexer wrapper, statement/scope analysis, completion engine and generators, snippets, formatter. Fully unit tested. |
 | `src/SqlSense.Vsix` | SSMS 22 shell: package + options + menu, `IVsTextView` command filter, legacy completion source/set, schema loader, SSMS connection bridge. |
-| `tests/SqlSense.Core.Tests` | 62 xUnit tests (context detection, completion, generators, formatter golden files, idempotence and token-safety). |
+| `deploy` | `Build-Package.ps1` (release build + zip), `package/` (Install/Uninstall scripts shipped to users), the user guide. |
+| `tests/SqlSense.Core.Tests` | xUnit tests (context detection, completion, generators, ALTER scripting, formatter golden files, idempotence and token-safety, connection color rules, export). |
 
 ### How it maps to SQL Prompt's design
 

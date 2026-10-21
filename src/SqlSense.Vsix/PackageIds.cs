@@ -22,10 +22,17 @@ namespace SqlSense
         public const int ScriptResultsAsInsert = 0x0106;
         public const int ImportSqlPromptStyle = 0x0107;
         public const int EditConnectionColors = 0x0108;
-        public const int TabDatabaseColor = 0x0109;
-        public const int TabServerColor = 0x010A;
-        public const int TabClearDatabaseColor = 0x010B;
-        public const int TabClearServerColor = 0x010C;
         public const int TabEditConnectionColors = 0x010D;
+
+        // Document tab › Connection Color › Database / Server lists (SqlSense.vsct): a slot per palette
+        // colour from the base id, then No Color, Custom... and Remove Rule at fixed offsets.
+        public const int TabDbMenu = 0x1051;
+        public const int TabServerMenu = 0x1052;
+        public const int TabDbColorBase = 0x0200;
+        public const int TabServerColorBase = 0x0240;
+        public const int TabPaletteSlots = 18;
+        public const int TabNoColorOffset = 0x20;
+        public const int TabCustomOffset = 0x21;
+        public const int TabRemoveOffset = 0x22;
     }
 }

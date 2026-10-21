@@ -22,8 +22,8 @@ namespace SqlSense.Settings
 
         public bool ConnectionColors { get; set; } = true;
         public bool ColorTabs { get; set; } = true;
-        public bool ColorBorder { get; set; } = true;
-        public int BorderThickness { get; set; } = 3;
+        public bool ColorStatusBar { get; set; } = true;
+        public bool HideSetTabColor { get; set; } = true;
         public bool UseSsmsConnectionColor { get; set; } = true;
         public string ConnectionColorsFile { get; set; } = DefaultConnectionColorsFile;
 

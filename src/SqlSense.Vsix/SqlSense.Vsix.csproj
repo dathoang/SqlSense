@@ -48,15 +48,15 @@
     <Compile Include="SqlSensePackage.cs" />
     <Compile Include="PackageIds.cs" />
     <Compile Include="Commands\SqlSenseCommands.cs" />
-    <Compile Include="Connections\ConnectionColorMargin.cs" />
-    <Compile Include="Connections\ConnectionColorPicker.cs" />
     <Compile Include="Connections\ConnectionColorService.cs" />
+    <Compile Include="Connections\SetTabColorBlocker.cs" />
     <Compile Include="Diagnostics\Log.cs" />
     <Compile Include="Editor\SqlDocument.cs" />
     <Compile Include="Editor\SqlViewListener.cs" />
     <Compile Include="Editor\SqlCommandFilter.cs" />
     <Compile Include="Editor\EditorActions.cs" />
     <Compile Include="Editor\InsertPairHighlighter.cs" />
+    <Compile Include="Editor\ObjectScripter.cs" />
     <Compile Include="IntelliSense\SqlCompletionSourceProvider.cs" />
     <Compile Include="IntelliSense\SqlCompletionSource.cs" />
     <Compile Include="IntelliSense\SqlCompletionSet.cs" />

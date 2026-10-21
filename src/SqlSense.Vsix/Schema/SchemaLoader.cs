@@ -20,13 +20,13 @@ ORDER BY name;
 
 SELECT name FROM sys.databases WHERE state = 0 ORDER BY name;
 
-SELECT o.object_id, s.name, o.name, o.type
+SELECT o.object_id, s.name, o.name, o.type, o.parent_object_id
 FROM sys.all_objects AS o
 JOIN sys.schemas AS s ON s.schema_id = o.schema_id
-WHERE o.type IN ('U', 'V', 'P', 'PC', 'FN', 'FS', 'IF', 'TF', 'FT', 'SN')
+WHERE o.type IN ('U', 'V', 'P', 'PC', 'FN', 'FS', 'IF', 'TF', 'FT', 'SN', 'TR')
   AND (o.is_ms_shipped = 0 OR (@sys = 1 AND s.name IN ('sys', 'INFORMATION_SCHEMA') AND o.type IN ('V', 'IF', 'TF')))
 UNION ALL
-SELECT tt.type_table_object_id, s.name, tt.name, 'TT'
+SELECT tt.type_table_object_id, s.name, tt.name, 'TT', 0
 FROM sys.table_types AS tt
 JOIN sys.schemas AS s ON s.schema_id = tt.schema_id;
 
@@ -85,6 +85,7 @@ ORDER BY 1, 9;";
                     }
 
                     var byId = new Dictionary<int, DbObject>();
+                    var triggerParents = new List<(DbObject Trigger, int ParentId)>();
                     r.NextResult();
                     while (r.Read())
                     {
@@ -92,7 +93,10 @@ ORDER BY 1, 9;";
                         if (kind == null) continue;
                         var obj = schema.Add(new DbObject(r.GetString(1), r.GetString(2), kind.Value));
                         byId[r.GetInt32(0)] = obj;
+                        if (kind == DbObjectKind.Trigger) triggerParents.Add((obj, r.GetInt32(4)));
                     }
+                    foreach (var (trigger, parentId) in triggerParents)
+                        if (byId.TryGetValue(parentId, out var parent)) trigger.Parent = parent.QualifiedName;
 
                     r.NextResult();
                     while (r.Read())
@@ -127,6 +131,22 @@ ORDER BY 1, 9;";
             }
         }
 
+        /// <summary>
+        /// The module's T-SQL source, or null when there is none to read (CLR, encrypted, dropped, or no
+        /// VIEW DEFINITION permission). Call off the UI thread.
+        /// </summary>
+        public static string LoadDefinition(string connectionString, string schema, string name)
+        {
+            using (var cn = new SqlConnection(connectionString))
+            using (var cmd = new SqlCommand("SELECT OBJECT_DEFINITION(OBJECT_ID(QUOTENAME(@schema) + N'.' + QUOTENAME(@name)));", cn) { CommandTimeout = 15 })
+            {
+                cmd.Parameters.AddWithValue("@schema", schema);
+                cmd.Parameters.AddWithValue("@name", name);
+                cn.Open();
+                return cmd.ExecuteScalar() as string;
+            }
+        }
+
         private static DbObjectKind? Kind(string type)
         {
             switch (type)
@@ -142,6 +162,7 @@ ORDER BY 1, 9;";
                 case "FT": return DbObjectKind.TableFunction;
                 case "SN": return DbObjectKind.Synonym;
                 case "TT": return DbObjectKind.TableType;
+                case "TR": return DbObjectKind.Trigger;
                 default: return null;
             }
         }

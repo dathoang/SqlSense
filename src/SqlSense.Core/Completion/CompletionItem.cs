@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using SqlSense.Core.Schema;
 
 namespace SqlSense.Core.Completion
 {
@@ -22,6 +23,30 @@ namespace SqlSense.Core.Completion
         Function,
         DataType,
         LocalTable,
+        Trigger,
+    }
+
+    /// <summary>
+    /// Attached to an object picked after ALTER (or CREATE OR ALTER) PROCEDURE/FUNCTION/VIEW/TRIGGER in an
+    /// otherwise empty batch: the host loads the object's definition and replaces the statement with
+    /// <see cref="ModuleScript.Build"/>'s output.
+    /// </summary>
+    public sealed class ObjectScriptRequest
+    {
+        public ObjectScriptRequest(DbObject obj, string verb, int statementStart)
+        {
+            Object = obj;
+            Verb = verb;
+            StatementStart = statementStart;
+        }
+
+        public DbObject Object { get; }
+
+        /// <summary>"ALTER" or "CREATE OR ALTER".</summary>
+        public string Verb { get; }
+
+        /// <summary>Document offset of the statement's first keyword; the script replaces from here to the picked name.</summary>
+        public int StatementStart { get; }
     }
 
     public sealed class CompletionItem
@@ -48,6 +73,9 @@ namespace SqlSense.Core.Completion
 
         /// <summary>Caret position inside <see cref="InsertText"/> after commit; -1 = end.</summary>
         public int CaretOffset { get; set; } = -1;
+
+        /// <summary>Set when committing this item should also script the object's definition.</summary>
+        public ObjectScriptRequest ScriptRequest { get; set; }
 
         public override string ToString() => $"{Kind}:{DisplayText}";
     }

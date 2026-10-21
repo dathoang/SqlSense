@@ -17,6 +17,9 @@ namespace SqlSense.Core.Completion
         /// <summary>Picking a procedure after EXEC adds its parameters.</summary>
         public bool ExecGeneratesParameters { get; set; } = true;
 
+        /// <summary>Picking an object after ALTER PROCEDURE/FUNCTION/VIEW/TRIGGER scripts its definition.</summary>
+        public bool AlterScriptsDefinition { get; set; } = true;
+
         /// <summary>Offer foreign-key based conditions after JOIN … ON.</summary>
         public bool SuggestJoinConditions { get; set; } = true;
 

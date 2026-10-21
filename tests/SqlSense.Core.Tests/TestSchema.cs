@@ -29,6 +29,9 @@ namespace SqlSense.Core.Tests
             proc.Parameters.Add(new DbParameter("@From", "date", false, true, 2));
 
             s.Add(new DbObject("dbo", "fn_Tax", DbObjectKind.ScalarFunction));
+            s.Add(new DbObject("dbo", "fn_OrdersOf", DbObjectKind.TableFunction))
+                .Columns.Add(new DbColumn("OrderID", "int", false, false, false, 1));
+            s.Add(new DbObject("dbo", "trg_Customers_Audit", DbObjectKind.Trigger) { Parent = "dbo.Customers" });
 
             s.ForeignKeys.Add(new DbForeignKey("FK_Orders_Customers", "sales", "SalesOrderHeader", "dbo", "Customers",
                 new[] { "CustomerID" }, new[] { "CustomerID" }));

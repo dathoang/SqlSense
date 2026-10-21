@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel.Design;
 using System.IO;
+using System.Linq;
 using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Editor;
 using Microsoft.VisualStudio.Shell;
@@ -60,11 +61,9 @@ namespace SqlSense.Commands
             Add(commands, PackageIds.ImportSqlPromptStyle, (s, e) => StyleImport.Run(_package, _package.Options));
             Add(commands, PackageIds.EditConnectionColors, (s, e) => EditConnectionColors());
 
-            // Document tab › Connection Color (the right-clicked tab is the active window).
-            Add(commands, PackageIds.TabDatabaseColor, (s, e) => PickTabColor(forDatabase: true), cmd => TabColorStatus(cmd, forDatabase: true, clear: false));
-            Add(commands, PackageIds.TabServerColor, (s, e) => PickTabColor(forDatabase: false), cmd => TabColorStatus(cmd, forDatabase: false, clear: false));
-            Add(commands, PackageIds.TabClearDatabaseColor, (s, e) => ClearTabColor(forDatabase: true), cmd => TabColorStatus(cmd, forDatabase: true, clear: true));
-            Add(commands, PackageIds.TabClearServerColor, (s, e) => ClearTabColor(forDatabase: false), cmd => TabColorStatus(cmd, forDatabase: false, clear: true));
+            // Document tab › Connection Color › Database / Server (the right-clicked tab is the active window).
+            AddTabColorMenu(commands, PackageIds.TabDbMenu, PackageIds.TabDbColorBase, forDatabase: true);
+            AddTabColorMenu(commands, PackageIds.TabServerMenu, PackageIds.TabServerColorBase, forDatabase: false);
             Add(commands, PackageIds.TabEditConnectionColors, (s, e) => EditConnectionColors(), cmd =>
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
@@ -106,32 +105,93 @@ namespace SqlSense.Commands
                 EditorActions.Status("SqlSense: connection colours are off (Tools › Options › SqlSense › Connection Colors).");
         }
 
-        private static void TabColorStatus(OleMenuCommand cmd, bool forDatabase, bool clear)
+        /// <summary>
+        /// One of the tab menu's colour lists: the submenu (its caption names the database or server), a slot per
+        /// <see cref="ColorText.Palette"/> colour, then No Color, Custom... and Remove Rule. The ticked item is the
+        /// colour of the rule written for exactly this database or server.
+        /// </summary>
+        private static void AddTabColorMenu(OleMenuCommandService commands, int menuId, int baseId, bool forDatabase)
         {
-            ThreadHelper.ThrowIfNotOnUIThread();
-            var rules = _package.ConnectionColors?.Rules;
-            var connected = ConnectionColorService.TryGetActiveWindow(out var server, out var database, out _);
-            cmd.Visible = rules != null && connected
-                          && (!forDatabase || !string.IsNullOrEmpty(database))
-                          && (!clear || rules.FindExact(server, forDatabase ? database : null) != null);
-            if (!cmd.Visible) return;
-            var target = forDatabase ? $"Database '{database}'" : $"Server '{server}'";
-            cmd.Text = clear ? $"Remove Color for {target}" : $"Color for {target}...";
+            Add(commands, menuId, (s, e) => { }, cmd =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                cmd.Visible = TryGetTabTarget(forDatabase, out var server, out var database, out _);
+                if (cmd.Visible) cmd.Text = forDatabase ? $"Database '{database}'" : $"Server '{server}'";
+            });
+            for (var i = 0; i < PackageIds.TabPaletteSlots; i++)
+            {
+                var slot = i;
+                Add(commands, baseId + slot, (s, e) => SetTabColor(forDatabase, ColorText.Palette[slot].Value), cmd =>
+                {
+                    ThreadHelper.ThrowIfNotOnUIThread();
+                    ConnectionColorRule rule = null;
+                    cmd.Visible = slot < ColorText.Palette.Count && TryGetTabTarget(forDatabase, out _, out _, out rule);
+                    if (!cmd.Visible) return;
+                    cmd.Text = Spaced(ColorText.Palette[slot].Key);
+                    cmd.Checked = rule?.Argb == ColorText.Palette[slot].Value;
+                });
+            }
+            Add(commands, baseId + PackageIds.TabNoColorOffset, (s, e) => SetTabColor(forDatabase, null), cmd =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                cmd.Visible = TryGetTabTarget(forDatabase, out _, out _, out var rule);
+                cmd.Checked = rule != null && rule.Argb == null;
+            });
+            Add(commands, baseId + PackageIds.TabCustomOffset, (s, e) => PickCustomTabColor(forDatabase), cmd =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                cmd.Visible = TryGetTabTarget(forDatabase, out _, out _, out var rule);
+                cmd.Checked = rule?.Argb is uint argb && !ColorText.Palette.Any(p => p.Value == argb);
+            });
+            Add(commands, baseId + PackageIds.TabRemoveOffset, (s, e) => RemoveTabColor(forDatabase), cmd =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                cmd.Visible = TryGetTabTarget(forDatabase, out _, out _, out var rule) && rule != null;
+            });
         }
 
-        private static void PickTabColor(bool forDatabase)
+        /// <summary>The active query window's server and database, and the rule written for exactly that target.</summary>
+        private static bool TryGetTabTarget(bool forDatabase, out string server, out string database, out ConnectionColorRule rule)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            if (!ConnectionColorService.TryGetActiveWindow(out var server, out var database, out var current)) return;
-            var target = forDatabase ? $"{server} / {database}" : $"{server} (all databases)";
-            if (!ConnectionColorPicker.Show(target, current, out var argb)) return;
+            server = database = null;
+            rule = null;
+            var rules = _package.ConnectionColors?.Rules;
+            if (rules == null || !ConnectionColorService.TryGetActiveWindow(out server, out database, out _)) return false;
+            if (forDatabase && string.IsNullOrEmpty(database)) return false;
+            rule = rules.FindExact(server, forDatabase ? database : null);
+            return true;
+        }
+
+        /// <summary>"DarkRed" → "Dark Red".</summary>
+        private static string Spaced(string name)
+            => System.Text.RegularExpressions.Regex.Replace(name, "(?<=[a-z])(?=[A-Z])", " ");
+
+        private static void SetTabColor(bool forDatabase, uint? argb)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (!TryGetTabTarget(forDatabase, out var server, out var database, out _)) return;
             UpdateRules(text => ConnectionColorRules.SetRule(text, server, forDatabase ? database : null, argb));
         }
 
-        private static void ClearTabColor(bool forDatabase)
+        private static void PickCustomTabColor(bool forDatabase)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            if (!ConnectionColorService.TryGetActiveWindow(out var server, out var database, out _)) return;
+            if (!TryGetTabTarget(forDatabase, out _, out _, out var rule)) return;
+            ConnectionColorService.TryGetActiveWindow(out _, out _, out var current);
+            using (var dialog = new System.Windows.Forms.ColorDialog { FullOpen = true, AnyColor = true })
+            {
+                if (rule?.Argb is uint argb) dialog.Color = System.Drawing.Color.FromArgb(unchecked((int)(argb | 0xFF000000)));
+                else if (current is System.Windows.Media.Color c) dialog.Color = System.Drawing.Color.FromArgb(c.R, c.G, c.B);
+                if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+                SetTabColor(forDatabase, 0xFF000000u | (uint)(dialog.Color.ToArgb() & 0xFFFFFF));
+            }
+        }
+
+        private static void RemoveTabColor(bool forDatabase)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (!TryGetTabTarget(forDatabase, out var server, out var database, out _)) return;
             UpdateRules(text => ConnectionColorRules.RemoveRule(text, server, forDatabase ? database : null));
         }
 

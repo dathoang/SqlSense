@@ -115,8 +115,8 @@ namespace SqlSense.Settings
             {
                 ConnectionColors = Get(ConnectionColors + "enabled", true),
                 ColorTabs = Get(ConnectionColors + "colorTabs", true),
-                ColorBorder = Get(ConnectionColors + "colorBorder", true),
-                BorderThickness = Math.Min(20, Math.Max(1, Get(ConnectionColors + "borderThickness", 3))),
+                ColorStatusBar = Get(ConnectionColors + "colorStatusBar", true),
+                HideSetTabColor = Get(ConnectionColors + "hideSetTabColor", true),
                 UseSsmsConnectionColor = Get(ConnectionColors + "useSsmsColor", true),
                 ConnectionColorsFile = string.IsNullOrWhiteSpace(colorsFile) ? SqlSenseSettings.DefaultConnectionColorsFile : colorsFile,
                 Enabled = Get(General + "enabled", true),
@@ -135,6 +135,7 @@ namespace SqlSense.Settings
                     AlwaysQualifySchema = Get(Suggestions + "alwaysQualifySchema", true),
                     InsertGeneratesColumns = Get(Suggestions + "insertGeneratesColumns", true),
                     ExecGeneratesParameters = Get(Suggestions + "execGeneratesParameters", true),
+                    AlterScriptsDefinition = Get(Suggestions + "alterScriptsDefinition", true),
                     SuggestJoinConditions = Get(Suggestions + "suggestJoinConditions", true),
                     UppercaseKeywords = Get(Suggestions + "uppercaseKeywords", true),
                 },

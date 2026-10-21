@@ -25,6 +25,8 @@ namespace SqlSense.Core.Analysis
         Variable,
         /// <summary>Typing an alias right after AS: nothing useful to suggest.</summary>
         AliasName,
+        /// <summary>An existing module after ALTER/DROP PROCEDURE|FUNCTION|VIEW|TRIGGER (kind in ClauseKeyword).</summary>
+        ObjectName,
     }
 
     public sealed class CompletionContext
@@ -58,6 +60,15 @@ namespace SqlSense.Core.Analysis
         public bool IsInsertTarget { get; set; }
 
         public TableRef InsertTarget { get; set; }
+
+        /// <summary>
+        /// ObjectName after ALTER or CREATE OR ALTER with nothing else in the batch: picking an object can
+        /// script its definition. "ALTER" / "CREATE OR ALTER", else null.
+        /// </summary>
+        public string ScriptVerb { get; set; }
+
+        /// <summary>Document offset of the statement's first keyword when <see cref="ScriptVerb"/> is set.</summary>
+        public int StatementStart { get; set; } = -1;
 
         /// <summary>Line indentation at the caret, used for multi-line insertions.</summary>
         public string LineIndent { get; set; } = string.Empty;
@@ -156,7 +167,64 @@ namespace SqlSense.Core.Analysis
             }
 
             ctx.Kind = Classify(sig, lastIdx, stmt.Start, ctx);
+            if (ctx.ScriptVerb != null)
+            {
+                // Only into an empty batch: re-picking the name of an ALTER that already has a body must not duplicate it.
+                var wordEnd = rel;
+                while (wordEnd < batch.Text.Length && (IsWordChar(batch.Text[wordEnd]) || batch.Text[wordEnd] == ']')) wordEnd++;
+                if (allSig.Any(t => t.Start >= wordEnd)) ctx.ScriptVerb = null;
+                else ctx.StatementStart += batch.Start;
+            }
             return ctx;
+        }
+
+        /// <summary>
+        /// ALTER|DROP|CREATE OR ALTER PROCEDURE|FUNCTION|VIEW|TRIGGER|TABLE [IF EXISTS] | → names of existing
+        /// objects; CREATE PROCEDURE … | → a new name (nothing to suggest). Null when the pattern doesn't apply.
+        /// </summary>
+        private static ContextKind? ClassifyObjectName(List<SqlToken> sig, int p, CompletionContext ctx)
+        {
+            var i = p;
+            var ifExists = i >= 2 && sig[i].Is("EXISTS") && sig[i - 1].Is("IF");
+            if (ifExists) i -= 2;
+            if (i < 1) return null;
+            var kind = ModuleKeyword(sig[i]);
+            if (kind == null) return null;
+
+            var v = i - 1;
+            string verb;
+            if (sig[v].Is("DROP")) verb = "DROP";
+            else if (sig[v].Is("ALTER"))
+            {
+                verb = "ALTER";
+                if (v >= 2 && sig[v - 1].Is("OR") && sig[v - 2].Is("CREATE"))
+                {
+                    verb = "CREATE OR ALTER";
+                    v -= 2;
+                }
+            }
+            else if (sig[v].Is("CREATE")) return ifExists || kind == "TABLE" ? (ContextKind?)null : ContextKind.AliasName;
+            else return null;
+            if (ifExists && verb != "DROP") return null;
+
+            ctx.ClauseKeyword = kind;
+            if (kind == "TABLE") return verb == "CREATE OR ALTER" ? (ContextKind?)null : ContextKind.TableSource;
+            if (verb != "DROP")
+            {
+                ctx.ScriptVerb = verb;
+                ctx.StatementStart = sig[v].Start;
+            }
+            return ContextKind.ObjectName;
+        }
+
+        private static string ModuleKeyword(SqlToken t)
+        {
+            if (t.Is("PROCEDURE") || t.Is("PROC")) return "PROCEDURE";
+            if (t.Is("FUNCTION")) return "FUNCTION";
+            if (t.Is("VIEW")) return "VIEW";
+            if (t.Is("TRIGGER")) return "TRIGGER";
+            if (t.Is("TABLE")) return "TABLE";
+            return null;
         }
 
         private static ContextKind Classify(List<SqlToken> sig, int p, int stmtStart, CompletionContext ctx)
@@ -164,6 +232,8 @@ namespace SqlSense.Core.Analysis
             if (p < 0 || p < stmtStart && !ctx.HasQualifier) return ContextKind.Keyword;
             var prev = sig[p];
             if (prev.Text == ";") return ContextKind.Keyword;
+            var objectName = ClassifyObjectName(sig, p, ctx);
+            if (objectName != null) return objectName.Value;
 
             // Walk back to the governing keyword at this nesting depth.
             var depth = 0;
@@ -259,6 +329,10 @@ namespace SqlSense.Core.Analysis
                 case "END":
                     return ContextKind.Keyword;
                 case "ON":
+                    // CREATE/ALTER TRIGGER t ON | → the table or view.
+                    if (directlyAfter && stmtStart < kwIdx && (sig[stmtStart].Is("CREATE") || sig[stmtStart].Is("ALTER"))
+                        && StatementAnalysis.FindWordAtDepth(sig, stmtStart, kwIdx, "TRIGGER") >= 0)
+                        return ContextKind.TableSource;
                     ctx.IsJoinCondition = directlyAfter && IsJoinOn(sig, kwIdx);
                     return ContextKind.Expression;
                 default:

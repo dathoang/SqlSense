@@ -95,6 +95,7 @@ namespace SqlSense.IntelliSense
                 case CompletionItemKind.TableFunction: group = StandardGlyphGroup.GlyphGroupMethod; item = StandardGlyphItem.GlyphItemProtected; break;
                 case CompletionItemKind.ScalarFunction: group = StandardGlyphGroup.GlyphExtensionMethod; break;
                 case CompletionItemKind.Procedure: group = StandardGlyphGroup.GlyphGroupMethod; break;
+                case CompletionItemKind.Trigger: group = StandardGlyphGroup.GlyphGroupEvent; break;
                 case CompletionItemKind.Schema: group = StandardGlyphGroup.GlyphGroupNamespace; break;
                 case CompletionItemKind.Database: group = StandardGlyphGroup.GlyphGroupModule; break;
                 case CompletionItemKind.Variable: group = StandardGlyphGroup.GlyphGroupVariable; break;

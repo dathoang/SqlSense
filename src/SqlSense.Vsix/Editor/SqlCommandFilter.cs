@@ -31,6 +31,7 @@ namespace SqlSense.Editor
         private static readonly string[] TriggerWordsBeforeSpace =
         {
             "FROM", "JOIN", "EXEC", "EXECUTE", "INTO", "UPDATE", "USE", "APPLY", "ON",
+            "PROCEDURE", "PROC", "FUNCTION", "VIEW", "TRIGGER",
         };
 
         private readonly IWpfTextView _view;
@@ -399,6 +400,7 @@ namespace SqlSense.Editor
 
         private bool Commit(bool requireSelection)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             if (!HasSession) return false;
             var set = SqlSet();
             var status = set?.SelectionStatus;
@@ -415,6 +417,7 @@ namespace SqlSense.Editor
             var span = ReplacementSpan(set.ApplicableTo.GetSpan(_view.TextBuffer.CurrentSnapshot));
             _session.Dismiss();
             EditorActions.Replace(_view, span, insert, caretOffset);
+            if (item?.ScriptRequest != null) ObjectScripter.Start(_view, item.ScriptRequest);
             _handled = VSConstants.S_OK;
             return true;
         }

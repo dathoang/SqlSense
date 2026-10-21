@@ -51,7 +51,7 @@ namespace SqlSense.Core.Connections
     public sealed class ConnectionColorRules
     {
         public const string Template =
-@"# SqlSense connection colours: query-window tabs and editor borders are painted by server and database.
+@"# SqlSense connection colours: query-window tabs, editor frames and status bars are painted by server and database.
 #
 #   server[/database] = colour
 #

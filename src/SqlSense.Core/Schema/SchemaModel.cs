@@ -13,6 +13,7 @@ namespace SqlSense.Core.Schema
         TableFunction,
         Synonym,
         TableType,
+        Trigger,
     }
 
     public sealed class DbColumn
@@ -69,6 +70,9 @@ namespace SqlSense.Core.Schema
         public DbObjectKind Kind { get; }
         public List<DbColumn> Columns { get; } = new List<DbColumn>();
         public List<DbParameter> Parameters { get; } = new List<DbParameter>();
+
+        /// <summary>For a trigger: the table or view it is on (schema.name).</summary>
+        public string Parent { get; set; }
 
         public bool HasColumns => Kind == DbObjectKind.Table || Kind == DbObjectKind.View
                                   || Kind == DbObjectKind.TableFunction || Kind == DbObjectKind.TableType;

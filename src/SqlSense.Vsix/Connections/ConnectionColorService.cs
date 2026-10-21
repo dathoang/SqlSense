@@ -9,11 +9,8 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.VisualStudio;
-using Microsoft.VisualStudio.Editor;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
-using Microsoft.VisualStudio.Text;
-using Microsoft.VisualStudio.TextManager.Interop;
 using SqlSense.Core.Connections;
 using SqlSense.Diagnostics;
 using SqlSense.Settings;
@@ -21,40 +18,37 @@ using SqlSense.Settings;
 namespace SqlSense.Connections
 {
     /// <summary>
-    /// Colours each SSMS query window by its server and database: the document tab (through the VS shell's
-    /// own tab colouring, DocumentView.IsTabGroupColorized / TabAccentBrush) and a frame around the editor
-    /// (<see cref="ConnectionColorMargin"/>). The window's DocView is SSMS's SqlScriptEditorControl, whose
-    /// ConnectionInfoList[0] is the UIConnectionInfo; SSMS rewrites its DATABASE option when the database
-    /// changes (drop-down or USE). None of this raises a public event, so open windows are re-read every second.
+    /// Colours each SSMS query window by its server and database, in the places SSMS and the shell already
+    /// colour:
+    /// <list type="bullet">
+    /// <item>the document tab and the frame around the active document: the shell's tab colouring
+    /// (DocumentView.IsTabGroupColorized / TabAccentBrush, which the document well's content border also uses
+    /// while "colorize document tabs" is on);</item>
+    /// <item>the query window status bar: QEStatusBarManager.singleServerBackColor, the colour SSMS takes from
+    /// the Connect dialog's "Use custom color".</item>
+    /// </list>
+    /// The window's DocView is SSMS's SqlScriptEditorControl, whose ConnectionInfoList[0] is the UIConnectionInfo;
+    /// SSMS rewrites its DATABASE option when the database changes (drop-down or USE). None of this raises a
+    /// public event, so open windows are re-read every second.
     /// </summary>
     internal sealed class ConnectionColorService : IDisposable
     {
         private const BindingFlags Any = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
-        private static readonly object BufferKey = typeof(ConnectionColorService);
 
         private readonly IVsUIShell _shell;
-        private readonly IVsEditorAdaptersFactoryService _adapters;
         private readonly DispatcherTimer _timer;
         private readonly Dictionary<DependencyObject, TabPainter> _tabs = new Dictionary<DependencyObject, TabPainter>();
-        private readonly HashSet<ITextBuffer> _buffers = new HashSet<ITextBuffer>();
+        private readonly Dictionary<object, StatusBarPainter> _statusBars = new Dictionary<object, StatusBarPainter>();
 
         private SqlSenseSettings _settings;
         private ConnectionColorRules _rules = ConnectionColorRules.Empty;
         private string _rulesPath;
         private DateTime _rulesStamp;
-        private bool _loggedTabPreference;
+        private bool _turnedOnTabColors;
 
-        /// <summary>Raised on the UI thread when any editor's border colour or the border settings change.</summary>
-        public static event EventHandler Changed;
-
-        /// <summary>The border colour of the query window showing this buffer, or null.</summary>
-        public static Color? BorderColorOf(ITextBuffer buffer)
-            => buffer != null && buffer.Properties.TryGetProperty(BufferKey, out Color color) ? color : (Color?)null;
-
-        private ConnectionColorService(IVsUIShell shell, IVsEditorAdaptersFactoryService adapters)
+        private ConnectionColorService(IVsUIShell shell)
         {
             _shell = shell;
-            _adapters = adapters;
             _timer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
             _timer.Tick += (s, e) =>
             {
@@ -64,15 +58,15 @@ namespace SqlSense.Connections
             _timer.Start();
         }
 
-        public static ConnectionColorService Create(IVsUIShell shell, IVsEditorAdaptersFactoryService adapters)
+        public static ConnectionColorService Create(IVsUIShell shell)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            if (shell == null || adapters == null)
+            if (shell == null)
             {
-                Log.Info("Connection colours are off: shell or editor adapter service unavailable.");
+                Log.Info("Connection colours are off: the shell service is unavailable.");
                 return null;
             }
-            var service = new ConnectionColorService(shell, adapters);
+            var service = new ConnectionColorService(shell);
             service.Refresh();
             return service;
         }
@@ -83,36 +77,31 @@ namespace SqlSense.Connections
             ThreadHelper.ThrowIfNotOnUIThread();
             try
             {
-                var settings = SqlSenseSettings.Current;
-                var settingsChanged = !ReferenceEquals(settings, _settings);
-                _settings = settings;
-                var rulesChanged = LoadRules(settings);
+                var settings = _settings = SqlSenseSettings.Current;
+                LoadRules(settings);
 
                 var seenTabs = new HashSet<DependencyObject>();
-                var seenBuffers = new HashSet<ITextBuffer>();
-                var bordersChanged = settingsChanged || rulesChanged;
+                var seenStatusBars = new HashSet<object>();
+                var anyTabColor = false;
 
-                if (settings.ConnectionColors && ErrorHandler.Succeeded(_shell.GetDocumentWindowEnum(out var frames)) && frames != null)
+                if (ErrorHandler.Succeeded(_shell.GetDocumentWindowEnum(out var frames)) && frames != null)
                 {
                     var one = new IVsWindowFrame[1];
                     while (frames.Next(1, one, out var fetched) == VSConstants.S_OK && fetched == 1)
                     {
                         var frame = one[0];
                         if (ErrorHandler.Failed(frame.GetProperty((int)__VSFPROPID.VSFPROPID_DocView, out var docView))) continue;
-                        if (!TryReadConnection(docView, out var server, out var database, out var ssmsColor)) continue;
+                        var connected = TryReadConnection(docView, out var server, out var database, out var ssmsColor);
+                        var color = connected && settings.ConnectionColors ? Resolve(server, database, ssmsColor) : null;
 
-                        var color = Resolve(server, database, ssmsColor);
-                        if (settings.ColorTabs && color.HasValue) PaintTab(frame, color.Value, seenTabs);
-
-                        if (settings.ColorBorder && color.HasValue && BufferOf(frame, docView) is ITextBuffer buffer)
+                        if (settings.ColorTabs && color.HasValue)
                         {
-                            seenBuffers.Add(buffer);
-                            if (BorderColorOf(buffer) != color)
-                            {
-                                buffer.Properties[BufferKey] = color.Value;
-                                bordersChanged = true;
-                            }
+                            PaintTab(frame, color.Value, seenTabs);
+                            anyTabColor = true;
                         }
+                        // Every query window is visited, so one that lost its colour gets SSMS's back.
+                        if (docView != null && (connected || _statusBars.ContainsKey(docView)))
+                            PaintStatusBar(docView, settings.ColorStatusBar ? color : null, seenStatusBars);
                     }
                 }
 
@@ -122,16 +111,10 @@ namespace SqlSense.Connections
                     _tabs[view].Release();
                     _tabs.Remove(view);
                 }
-                foreach (var buffer in _buffers)
-                {
-                    if (seenBuffers.Contains(buffer)) continue;
-                    buffer.Properties.RemoveProperty(BufferKey);
-                    bordersChanged = true;
-                }
-                _buffers.Clear();
-                _buffers.UnionWith(seenBuffers);
+                foreach (var docView in new List<object>(_statusBars.Keys))
+                    if (!seenStatusBars.Contains(docView)) _statusBars.Remove(docView);
 
-                if (bordersChanged) Changed?.Invoke(null, EventArgs.Empty);
+                SyncTabColorPreference(anyTabColor || (_turnedOnTabColors && settings.ConnectionColors && settings.ColorTabs));
             }
             catch (Exception ex)
             {
@@ -181,12 +164,12 @@ namespace SqlSense.Connections
         private static Color FromArgb(uint argb)
             => Color.FromArgb((byte)(argb >> 24), (byte)(argb >> 16), (byte)(argb >> 8), (byte)argb);
 
-        /// <summary>Reloads the rules file when its path or timestamp changed. True when the rules changed.</summary>
-        private bool LoadRules(SqlSenseSettings settings)
+        /// <summary>Reloads the rules file when its path or timestamp changed.</summary>
+        private void LoadRules(SqlSenseSettings settings)
         {
             var path = settings.ConnectionColorsFile;
             var stamp = File.Exists(path) ? File.GetLastWriteTimeUtc(path) : DateTime.MinValue;
-            if (path == _rulesPath && stamp == _rulesStamp) return false;
+            if (path == _rulesPath && stamp == _rulesStamp) return;
             _rulesPath = path;
             _rulesStamp = stamp;
             try
@@ -198,11 +181,10 @@ namespace SqlSense.Connections
                 // Probably still being written; read it again on the next tick.
                 _rulesStamp = DateTime.MinValue;
                 Log.Info($"Reading {path}: {ex.Message}");
-                return false;
+                return;
             }
             Log.Info($"Connection colours: {_rules.Rules.Count} rule(s) from {path}.");
             foreach (var error in _rules.Errors) Log.Info($"{Path.GetFileName(path)} {error}");
-            return true;
         }
 
         /// <summary>Server, database and the SSMS "Use custom color" colour of a query window's DocView.</summary>
@@ -226,22 +208,6 @@ namespace SqlSense.Connections
             return true;
         }
 
-        /// <summary>The editor buffer of a query window: its DocData, or SSMS's ScriptEditorControl.DocData.</summary>
-        private ITextBuffer BufferOf(IVsWindowFrame frame, object docView)
-        {
-            ThreadHelper.ThrowIfNotOnUIThread();
-            frame.GetProperty((int)__VSFPROPID.VSFPROPID_DocData, out var frameDocData);
-            var controlDocData = docView.GetType().GetProperty("DocData", Any)?.GetValue(docView);
-            foreach (var docData in new[] { frameDocData, controlDocData })
-            {
-                var vsBuffer = docData as IVsTextBuffer;
-                if (vsBuffer == null && docData is IVsTextBufferProvider provider && provider.GetTextBuffer(out var lines) == VSConstants.S_OK)
-                    vsBuffer = lines;
-                if (vsBuffer != null && _adapters.GetDocumentBuffer(vsBuffer) is ITextBuffer buffer) return buffer;
-            }
-            return null;
-        }
-
         private void PaintTab(IVsWindowFrame frame, Color color, HashSet<DependencyObject> seen)
         {
             if (!(frame.GetType().GetProperty("FrameView", Any)?.GetValue(frame) is DependencyObject view)) return;
@@ -250,15 +216,42 @@ namespace SqlSense.Connections
                 painter = TabPainter.Create(view);
                 if (painter == null) return;
                 _tabs.Add(view, painter);
-                if (!_loggedTabPreference)
-                {
-                    _loggedTabPreference = true;
-                    if (TabPainter.ColorizeDocumentTabs() == false)
-                        Log.Info("Document tabs are not coloured until Tools › Options › Environment › Tabs and Windows › Colorize document tabs is on.");
-                }
             }
             seen.Add(view);
             painter.Paint(color);
+        }
+
+        private void PaintStatusBar(object docView, Color? color, HashSet<object> seen)
+        {
+            if (!_statusBars.TryGetValue(docView, out var painter))
+            {
+                if (color == null) return;
+                painter = StatusBarPainter.Create(docView);
+                if (painter == null) return;
+                _statusBars.Add(docView, painter);
+            }
+            seen.Add(docView);
+            painter.Paint(color);
+        }
+
+        /// <summary>
+        /// The shell draws tab colours, and the active document's frame in its tab colour, only while its
+        /// "colorize document tabs" preference is on. It is switched on for this session while SqlSense colours
+        /// a tab, and off again when SqlSense stops, only if SqlSense switched it on.
+        /// </summary>
+        private void SyncTabColorPreference(bool wanted)
+        {
+            var on = TabPainter.ColorizeDocumentTabs;
+            if (wanted && on == false && TabPainter.SetColorizeDocumentTabs(true))
+            {
+                _turnedOnTabColors = true;
+                Log.Info("Turned on document tab colours for this session (Environment › Tabs and Windows › Colorize document tabs).");
+            }
+            else if (!wanted && _turnedOnTabColors)
+            {
+                if (on == true) TabPainter.SetColorizeDocumentTabs(false);
+                _turnedOnTabColors = false;
+            }
         }
 
         public void Dispose()
@@ -267,9 +260,9 @@ namespace SqlSense.Connections
             _timer.Stop();
             foreach (var painter in _tabs.Values) painter.Release();
             _tabs.Clear();
-            foreach (var buffer in _buffers) buffer.Properties.RemoveProperty(BufferKey);
-            _buffers.Clear();
-            Changed?.Invoke(null, EventArgs.Empty);
+            foreach (var painter in _statusBars.Values) painter.Paint(null);
+            _statusBars.Clear();
+            SyncTabColorPreference(false);
         }
 
         /// <summary>
@@ -313,19 +306,40 @@ namespace SqlSense.Connections
             }
 
             /// <summary>The shell's "colorize document tabs" preference, or null when it can't be read.</summary>
-            public static bool? ColorizeDocumentTabs()
+            public static bool? ColorizeDocumentTabs
             {
+                get
+                {
+                    var preferences = Preferences(out var preference);
+                    return preferences == null ? null : preference.GetValue(preferences) as bool?;
+                }
+            }
+
+            /// <summary>Sets the preference in memory (the Tabs and Windows options page saves it only when used).</summary>
+            public static bool SetColorizeDocumentTabs(bool on)
+            {
+                var preferences = Preferences(out var preference);
+                if (preferences == null || preference?.CanWrite != true) return false;
                 try
                 {
-                    var viewManager = Type.GetType("Microsoft.VisualStudio.PlatformUI.Shell.ViewManager, Microsoft.VisualStudio.Shell.ViewManager");
-                    var instance = viewManager?.GetProperty("Instance", Any)?.GetValue(null);
-                    var preferences = instance?.GetType().GetProperty("Preferences", Any)?.GetValue(instance);
-                    return preferences?.GetType().GetProperty("ColorizeDocumentTabs", Any)?.GetValue(preferences) as bool?;
+                    preference.SetValue(preferences, on);
+                    return true;
                 }
-                catch (Exception)
+                catch (TargetInvocationException ex)
                 {
-                    return null;
+                    Log.Error("Changing the document tab colour preference", ex.InnerException ?? ex);
+                    return false;
                 }
+            }
+
+            private static object Preferences(out PropertyInfo colorizeDocumentTabs)
+            {
+                colorizeDocumentTabs = null;
+                var viewManager = Type.GetType("Microsoft.VisualStudio.PlatformUI.Shell.ViewManager, Microsoft.VisualStudio.Shell.ViewManager");
+                var instance = viewManager?.GetProperty("Instance", Any)?.GetValue(null);
+                var preferences = instance?.GetType().GetProperty("Preferences", Any)?.GetValue(instance);
+                colorizeDocumentTabs = preferences?.GetType().GetProperty("ColorizeDocumentTabs", Any);
+                return colorizeDocumentTabs == null ? null : preferences;
             }
 
             public void Paint(Color color)
@@ -385,6 +399,78 @@ namespace SqlSense.Connections
                     if (t.GetField(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.DeclaredOnly)?.GetValue(null) is DependencyProperty dp)
                         return dp;
                 return null;
+            }
+        }
+
+        /// <summary>
+        /// Paints a query window's status bar through SSMS's QEStatusBarManager (ScriptEditorControl.statusBarManager):
+        /// its singleServerBackColor field is what UpdateStatusBar paints. SSMS sets the field again on every
+        /// connect, so the colour it sets is remembered and given back when SqlSense stops colouring the window.
+        /// </summary>
+        private sealed class StatusBarPainter
+        {
+            private static FieldInfo _colorField;
+            private static MethodInfo _update;
+
+            private readonly object _manager;
+            private System.Drawing.Color _ssmsColor;
+            private System.Drawing.Color? _written;
+
+            private StatusBarPainter(object manager) => _manager = manager;
+
+            public static StatusBarPainter Create(object docView)
+            {
+                FieldInfo managerField = null;
+                for (var t = docView.GetType(); t != null && managerField == null; t = t.BaseType)
+                    managerField = t.GetField("statusBarManager", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                var manager = managerField?.GetValue(docView);
+                if (manager == null) return null;
+                if (_colorField == null)
+                {
+                    _colorField = manager.GetType().GetField("singleServerBackColor", BindingFlags.Instance | BindingFlags.NonPublic);
+                    _update = manager.GetType().GetMethod("UpdateStatusBar", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
+                    if (_colorField?.FieldType != typeof(System.Drawing.Color) || _update == null)
+                    {
+                        _colorField = null;
+                        Log.Info($"Status bars can't be coloured: {manager.GetType().FullName} has changed.");
+                        return null;
+                    }
+                }
+                return new StatusBarPainter(manager);
+            }
+
+            /// <summary>Paints the colour, or with null gives the status bar back its SSMS colour.</summary>
+            public void Paint(Color? color)
+            {
+                var current = (System.Drawing.Color)_colorField.GetValue(_manager);
+                if (_written.HasValue && current.ToArgb() != _written.Value.ToArgb()) _written = null; // SSMS reconnected
+                if (!_written.HasValue) _ssmsColor = current;
+
+                if (color is Color c)
+                {
+                    var wanted = System.Drawing.Color.FromArgb(c.R, c.G, c.B); // the status strip can't be translucent
+                    if (current.ToArgb() != wanted.ToArgb()) Set(wanted);
+                    _written = wanted;
+                }
+                else if (_written.HasValue)
+                {
+                    Set(_ssmsColor);
+                    _written = null;
+                }
+            }
+
+            private void Set(System.Drawing.Color color)
+            {
+                _colorField.SetValue(_manager, color);
+                if (_manager.GetType().GetProperty("IsInitialized")?.GetValue(_manager) is bool ready && !ready) return;
+                try
+                {
+                    _update.Invoke(_manager, null);
+                }
+                catch (TargetInvocationException ex)
+                {
+                    Log.Error("Colouring the status bar", ex.InnerException ?? ex);
+                }
             }
         }
     }

@@ -65,6 +65,10 @@ namespace SqlSense.Core.Completion
                         AddObjects(ctx, schema, items, o => o.Kind == DbObjectKind.Procedure, null);
                         AddSchemas(schema, items);
                         break;
+                    case ContextKind.ObjectName:
+                        AddObjects(ctx, schema, items, ModuleFilter(ctx.ClauseKeyword), null);
+                        AddSchemas(schema, items);
+                        break;
                     case ContextKind.Expression:
                         AddExpression(ctx, schema, items);
                         break;
@@ -137,6 +141,11 @@ namespace SqlSense.Core.Completion
                 var priority = Ci.Equals(o.Schema, schema.DefaultSchema) ? 10 : 11;
 
                 CompletionItem item;
+                if (ctx.Kind == ContextKind.ObjectName)
+                {
+                    items.Add(ModuleItem(ctx, o, display, name, priority));
+                    continue;
+                }
                 switch (o.Kind)
                 {
                     case DbObjectKind.Procedure:
@@ -161,6 +170,55 @@ namespace SqlSense.Core.Completion
                 }
                 items.Add(item);
             }
+        }
+
+        private static Func<DbObject, bool> ModuleFilter(string keyword)
+        {
+            switch (keyword)
+            {
+                case "PROCEDURE": return o => o.Kind == DbObjectKind.Procedure;
+                case "FUNCTION": return o => o.Kind == DbObjectKind.ScalarFunction || o.Kind == DbObjectKind.TableFunction;
+                case "VIEW": return o => o.Kind == DbObjectKind.View;
+                case "TRIGGER": return o => o.Kind == DbObjectKind.Trigger;
+                default: return o => false;
+            }
+        }
+
+        /// <summary>An object after ALTER/DROP PROCEDURE …: just its name, plus a script request after ALTER.</summary>
+        private CompletionItem ModuleItem(CompletionContext ctx, DbObject o, string display, string name, int priority)
+        {
+            CompletionItemKind kind;
+            string description;
+            switch (o.Kind)
+            {
+                case DbObjectKind.View:
+                    kind = CompletionItemKind.View;
+                    description = "view" + DescribeColumns(o);
+                    break;
+                case DbObjectKind.Trigger:
+                    kind = CompletionItemKind.Trigger;
+                    description = "trigger" + (o.Parent != null ? " on " + o.Parent : string.Empty);
+                    break;
+                case DbObjectKind.ScalarFunction:
+                    kind = CompletionItemKind.ScalarFunction;
+                    description = DescribeRoutine(o);
+                    break;
+                case DbObjectKind.TableFunction:
+                    kind = CompletionItemKind.TableFunction;
+                    description = DescribeRoutine(o);
+                    break;
+                default:
+                    kind = CompletionItemKind.Procedure;
+                    description = DescribeRoutine(o);
+                    break;
+            }
+            var item = new CompletionItem(display, name, kind, description) { Priority = priority };
+            if (ctx.ScriptVerb != null && Options.AlterScriptsDefinition)
+            {
+                item.ScriptRequest = new ObjectScriptRequest(o, ctx.ScriptVerb, ctx.StatementStart);
+                item.Description += " — inserts its definition";
+            }
+            return item;
         }
 
         private CompletionItem TableItem(CompletionContext ctx, string display, string insert, CompletionItemKind kind,
@@ -263,7 +321,7 @@ namespace SqlSense.Core.Completion
             {
                 var r = ctx.TablesInScope.FirstOrDefault(t => t.Matches(q[0]))
                         ?? ctx.TablesInScope.FirstOrDefault(t => Ci.Equals(t.Name, q[0]));
-                if (r != null && baseKind != ContextKind.TableSource && baseKind != ContextKind.Procedure)
+                if (r != null && baseKind != ContextKind.TableSource && baseKind != ContextKind.Procedure && baseKind != ContextKind.ObjectName)
                 {
                     foreach (var col in r.ColumnNames)
                     {
@@ -278,10 +336,14 @@ namespace SqlSense.Core.Completion
                     switch (baseKind)
                     {
                         case ContextKind.TableSource:
-                            filter = o => o.Kind != DbObjectKind.Procedure && o.Kind != DbObjectKind.ScalarFunction && o.Kind != DbObjectKind.TableType;
+                            filter = o => o.Kind != DbObjectKind.Procedure && o.Kind != DbObjectKind.ScalarFunction
+                                          && o.Kind != DbObjectKind.TableType && o.Kind != DbObjectKind.Trigger;
                             break;
                         case ContextKind.Procedure:
                             filter = o => o.Kind == DbObjectKind.Procedure;
+                            break;
+                        case ContextKind.ObjectName:
+                            filter = ModuleFilter(ctx.ClauseKeyword);
                             break;
                         default:
                             filter = o => o.Kind == DbObjectKind.ScalarFunction || o.Kind == DbObjectKind.TableFunction;
@@ -314,7 +376,10 @@ namespace SqlSense.Core.Completion
                 }
                 // db.schema.<object>
                 if (Ci.Equals(q[0], schema.DatabaseName) && schema.IsSchema(q[1]))
-                    AddObjects(ctx, schema, items, o => baseKind == ContextKind.Procedure ? o.Kind == DbObjectKind.Procedure : o.Kind != DbObjectKind.Procedure, q[1]);
+                    AddObjects(ctx, schema, items,
+                        baseKind == ContextKind.Procedure ? o => o.Kind == DbObjectKind.Procedure
+                        : baseKind == ContextKind.ObjectName ? ModuleFilter(ctx.ClauseKeyword)
+                        : (Func<DbObject, bool>)(o => o.Kind != DbObjectKind.Procedure && o.Kind != DbObjectKind.Trigger), q[1]);
                 return;
             }
             if (q.Count == 3 && Ci.Equals(q[0], schema.DatabaseName))

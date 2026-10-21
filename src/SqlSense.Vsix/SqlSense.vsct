@@ -18,6 +18,24 @@
           <ButtonText>Connection Color</ButtonText>
         </Strings>
       </Menu>
+      <Menu guid="guidSqlSenseCmdSet" id="SqlSenseTabDbMenu" priority="0x0100" type="Menu">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabColorGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Db</ButtonText>
+        </Strings>
+      </Menu>
+      <Menu guid="guidSqlSenseCmdSet" id="SqlSenseTabServerMenu" priority="0x0101" type="Menu">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabColorGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Server</ButtonText>
+        </Strings>
+      </Menu>
     </Menus>
 
     <Groups>
@@ -39,6 +57,18 @@
       </Group>
       <Group guid="guidSqlSenseCmdSet" id="SqlSenseTabFileGroup" priority="0x0200">
         <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabMenu" />
+      </Group>
+      <Group guid="guidSqlSenseCmdSet" id="SqlSenseTabDbPaletteGroup" priority="0x0100">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbMenu" />
+      </Group>
+      <Group guid="guidSqlSenseCmdSet" id="SqlSenseTabDbActionGroup" priority="0x0200">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbMenu" />
+      </Group>
+      <Group guid="guidSqlSenseCmdSet" id="SqlSenseTabServerPaletteGroup" priority="0x0100">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerMenu" />
+      </Group>
+      <Group guid="guidSqlSenseCmdSet" id="SqlSenseTabServerActionGroup" priority="0x0200">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerMenu" />
       </Group>
     </Groups>
 
@@ -111,44 +141,426 @@
           <CanonicalName>SqlSense.ScriptResultsAsInsert</CanonicalName>
         </Strings>
       </Button>
-      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDatabaseColor" priority="0x0100" type="Button">
-        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabColorGroup" />
+      <!-- Tab › Connection Color › Db : palette slots; texts come from ColorText.Palette at run time. -->
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbColor0" priority="0x0100" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbPaletteGroup" />
         <CommandFlag>DefaultInvisible</CommandFlag>
         <CommandFlag>DynamicVisibility</CommandFlag>
         <CommandFlag>TextChanges</CommandFlag>
         <Strings>
-          <ButtonText>Color for Database...</ButtonText>
-          <CanonicalName>SqlSense.TabDatabaseColor</CanonicalName>
+          <ButtonText>Color 0</ButtonText>
+          <CanonicalName>SqlSense.TabDbColor0</CanonicalName>
         </Strings>
       </Button>
-      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerColor" priority="0x0101" type="Button">
-        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabColorGroup" />
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbColor1" priority="0x0101" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbPaletteGroup" />
         <CommandFlag>DefaultInvisible</CommandFlag>
         <CommandFlag>DynamicVisibility</CommandFlag>
         <CommandFlag>TextChanges</CommandFlag>
         <Strings>
-          <ButtonText>Color for Server...</ButtonText>
-          <CanonicalName>SqlSense.TabServerColor</CanonicalName>
+          <ButtonText>Color 1</ButtonText>
+          <CanonicalName>SqlSense.TabDbColor1</CanonicalName>
         </Strings>
       </Button>
-      <Button guid="guidSqlSenseCmdSet" id="cmdidTabClearDatabaseColor" priority="0x0102" type="Button">
-        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabColorGroup" />
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbColor2" priority="0x0102" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbPaletteGroup" />
         <CommandFlag>DefaultInvisible</CommandFlag>
         <CommandFlag>DynamicVisibility</CommandFlag>
         <CommandFlag>TextChanges</CommandFlag>
         <Strings>
-          <ButtonText>Remove Color for Database</ButtonText>
-          <CanonicalName>SqlSense.TabClearDatabaseColor</CanonicalName>
+          <ButtonText>Color 2</ButtonText>
+          <CanonicalName>SqlSense.TabDbColor2</CanonicalName>
         </Strings>
       </Button>
-      <Button guid="guidSqlSenseCmdSet" id="cmdidTabClearServerColor" priority="0x0103" type="Button">
-        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabColorGroup" />
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbColor3" priority="0x0103" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbPaletteGroup" />
         <CommandFlag>DefaultInvisible</CommandFlag>
         <CommandFlag>DynamicVisibility</CommandFlag>
         <CommandFlag>TextChanges</CommandFlag>
         <Strings>
-          <ButtonText>Remove Color for Server</ButtonText>
-          <CanonicalName>SqlSense.TabClearServerColor</CanonicalName>
+          <ButtonText>Color 3</ButtonText>
+          <CanonicalName>SqlSense.TabDbColor3</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbColor4" priority="0x0104" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 4</ButtonText>
+          <CanonicalName>SqlSense.TabDbColor4</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbColor5" priority="0x0105" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 5</ButtonText>
+          <CanonicalName>SqlSense.TabDbColor5</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbColor6" priority="0x0106" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 6</ButtonText>
+          <CanonicalName>SqlSense.TabDbColor6</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbColor7" priority="0x0107" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 7</ButtonText>
+          <CanonicalName>SqlSense.TabDbColor7</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbColor8" priority="0x0108" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 8</ButtonText>
+          <CanonicalName>SqlSense.TabDbColor8</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbColor9" priority="0x0109" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 9</ButtonText>
+          <CanonicalName>SqlSense.TabDbColor9</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbColor10" priority="0x010A" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 10</ButtonText>
+          <CanonicalName>SqlSense.TabDbColor10</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbColor11" priority="0x010B" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 11</ButtonText>
+          <CanonicalName>SqlSense.TabDbColor11</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbColor12" priority="0x010C" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 12</ButtonText>
+          <CanonicalName>SqlSense.TabDbColor12</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbColor13" priority="0x010D" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 13</ButtonText>
+          <CanonicalName>SqlSense.TabDbColor13</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbColor14" priority="0x010E" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 14</ButtonText>
+          <CanonicalName>SqlSense.TabDbColor14</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbColor15" priority="0x010F" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 15</ButtonText>
+          <CanonicalName>SqlSense.TabDbColor15</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbColor16" priority="0x0110" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 16</ButtonText>
+          <CanonicalName>SqlSense.TabDbColor16</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbColor17" priority="0x0111" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 17</ButtonText>
+          <CanonicalName>SqlSense.TabDbColor17</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbNoColor" priority="0x0100" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbActionGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>No Color</ButtonText>
+          <CanonicalName>SqlSense.TabDbNoColor</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbCustom" priority="0x0101" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbActionGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Custom...</ButtonText>
+          <CanonicalName>SqlSense.TabDbCustom</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDbRemove" priority="0x0102" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabDbActionGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Remove Rule</ButtonText>
+          <CanonicalName>SqlSense.TabDbRemove</CanonicalName>
+        </Strings>
+      </Button>
+      <!-- Tab › Connection Color › Server : palette slots; texts come from ColorText.Palette at run time. -->
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerColor0" priority="0x0100" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 0</ButtonText>
+          <CanonicalName>SqlSense.TabServerColor0</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerColor1" priority="0x0101" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 1</ButtonText>
+          <CanonicalName>SqlSense.TabServerColor1</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerColor2" priority="0x0102" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 2</ButtonText>
+          <CanonicalName>SqlSense.TabServerColor2</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerColor3" priority="0x0103" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 3</ButtonText>
+          <CanonicalName>SqlSense.TabServerColor3</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerColor4" priority="0x0104" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 4</ButtonText>
+          <CanonicalName>SqlSense.TabServerColor4</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerColor5" priority="0x0105" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 5</ButtonText>
+          <CanonicalName>SqlSense.TabServerColor5</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerColor6" priority="0x0106" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 6</ButtonText>
+          <CanonicalName>SqlSense.TabServerColor6</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerColor7" priority="0x0107" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 7</ButtonText>
+          <CanonicalName>SqlSense.TabServerColor7</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerColor8" priority="0x0108" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 8</ButtonText>
+          <CanonicalName>SqlSense.TabServerColor8</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerColor9" priority="0x0109" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 9</ButtonText>
+          <CanonicalName>SqlSense.TabServerColor9</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerColor10" priority="0x010A" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 10</ButtonText>
+          <CanonicalName>SqlSense.TabServerColor10</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerColor11" priority="0x010B" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 11</ButtonText>
+          <CanonicalName>SqlSense.TabServerColor11</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerColor12" priority="0x010C" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 12</ButtonText>
+          <CanonicalName>SqlSense.TabServerColor12</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerColor13" priority="0x010D" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 13</ButtonText>
+          <CanonicalName>SqlSense.TabServerColor13</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerColor14" priority="0x010E" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 14</ButtonText>
+          <CanonicalName>SqlSense.TabServerColor14</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerColor15" priority="0x010F" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 15</ButtonText>
+          <CanonicalName>SqlSense.TabServerColor15</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerColor16" priority="0x0110" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 16</ButtonText>
+          <CanonicalName>SqlSense.TabServerColor16</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerColor17" priority="0x0111" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerPaletteGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color 17</ButtonText>
+          <CanonicalName>SqlSense.TabServerColor17</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerNoColor" priority="0x0100" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerActionGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>No Color</ButtonText>
+          <CanonicalName>SqlSense.TabServerNoColor</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerCustom" priority="0x0101" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerActionGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Custom...</ButtonText>
+          <CanonicalName>SqlSense.TabServerCustom</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerRemove" priority="0x0102" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabServerActionGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Remove Rule</ButtonText>
+          <CanonicalName>SqlSense.TabServerRemove</CanonicalName>
         </Strings>
       </Button>
       <Button guid="guidSqlSenseCmdSet" id="cmdidTabEditConnectionColors" priority="0x0100" type="Button">
@@ -196,11 +608,55 @@
       <IDSymbol name="cmdidScriptResultsAsInsert" value="0x0106" />
       <IDSymbol name="cmdidImportSqlPromptStyle" value="0x0107" />
       <IDSymbol name="cmdidEditConnectionColors" value="0x0108" />
-      <IDSymbol name="cmdidTabDatabaseColor" value="0x0109" />
-      <IDSymbol name="cmdidTabServerColor" value="0x010A" />
-      <IDSymbol name="cmdidTabClearDatabaseColor" value="0x010B" />
-      <IDSymbol name="cmdidTabClearServerColor" value="0x010C" />
       <IDSymbol name="cmdidTabEditConnectionColors" value="0x010D" />
+      <IDSymbol name="cmdidTabDbColor0" value="0x0200" />
+      <IDSymbol name="cmdidTabDbColor1" value="0x0201" />
+      <IDSymbol name="cmdidTabDbColor2" value="0x0202" />
+      <IDSymbol name="cmdidTabDbColor3" value="0x0203" />
+      <IDSymbol name="cmdidTabDbColor4" value="0x0204" />
+      <IDSymbol name="cmdidTabDbColor5" value="0x0205" />
+      <IDSymbol name="cmdidTabDbColor6" value="0x0206" />
+      <IDSymbol name="cmdidTabDbColor7" value="0x0207" />
+      <IDSymbol name="cmdidTabDbColor8" value="0x0208" />
+      <IDSymbol name="cmdidTabDbColor9" value="0x0209" />
+      <IDSymbol name="cmdidTabDbColor10" value="0x020A" />
+      <IDSymbol name="cmdidTabDbColor11" value="0x020B" />
+      <IDSymbol name="cmdidTabDbColor12" value="0x020C" />
+      <IDSymbol name="cmdidTabDbColor13" value="0x020D" />
+      <IDSymbol name="cmdidTabDbColor14" value="0x020E" />
+      <IDSymbol name="cmdidTabDbColor15" value="0x020F" />
+      <IDSymbol name="cmdidTabDbColor16" value="0x0210" />
+      <IDSymbol name="cmdidTabDbColor17" value="0x0211" />
+      <IDSymbol name="cmdidTabDbNoColor" value="0x0220" />
+      <IDSymbol name="cmdidTabDbCustom" value="0x0221" />
+      <IDSymbol name="cmdidTabDbRemove" value="0x0222" />
+      <IDSymbol name="cmdidTabServerColor0" value="0x0240" />
+      <IDSymbol name="cmdidTabServerColor1" value="0x0241" />
+      <IDSymbol name="cmdidTabServerColor2" value="0x0242" />
+      <IDSymbol name="cmdidTabServerColor3" value="0x0243" />
+      <IDSymbol name="cmdidTabServerColor4" value="0x0244" />
+      <IDSymbol name="cmdidTabServerColor5" value="0x0245" />
+      <IDSymbol name="cmdidTabServerColor6" value="0x0246" />
+      <IDSymbol name="cmdidTabServerColor7" value="0x0247" />
+      <IDSymbol name="cmdidTabServerColor8" value="0x0248" />
+      <IDSymbol name="cmdidTabServerColor9" value="0x0249" />
+      <IDSymbol name="cmdidTabServerColor10" value="0x024A" />
+      <IDSymbol name="cmdidTabServerColor11" value="0x024B" />
+      <IDSymbol name="cmdidTabServerColor12" value="0x024C" />
+      <IDSymbol name="cmdidTabServerColor13" value="0x024D" />
+      <IDSymbol name="cmdidTabServerColor14" value="0x024E" />
+      <IDSymbol name="cmdidTabServerColor15" value="0x024F" />
+      <IDSymbol name="cmdidTabServerColor16" value="0x0250" />
+      <IDSymbol name="cmdidTabServerColor17" value="0x0251" />
+      <IDSymbol name="cmdidTabServerNoColor" value="0x0260" />
+      <IDSymbol name="cmdidTabServerCustom" value="0x0261" />
+      <IDSymbol name="cmdidTabServerRemove" value="0x0262" />
+      <IDSymbol name="SqlSenseTabDbMenu" value="0x1051" />
+      <IDSymbol name="SqlSenseTabServerMenu" value="0x1052" />
+      <IDSymbol name="SqlSenseTabDbPaletteGroup" value="0x1071" />
+      <IDSymbol name="SqlSenseTabDbActionGroup" value="0x1072" />
+      <IDSymbol name="SqlSenseTabServerPaletteGroup" value="0x1073" />
+      <IDSymbol name="SqlSenseTabServerActionGroup" value="0x1074" />
       <IDSymbol name="SqlSenseTabMenu" value="0x1050" />
       <IDSymbol name="SqlSenseTabGroup" value="0x1060" />
       <IDSymbol name="SqlSenseTabColorGroup" value="0x1070" />

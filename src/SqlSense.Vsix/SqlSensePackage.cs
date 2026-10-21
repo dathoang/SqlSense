@@ -2,8 +2,6 @@ using System;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.VisualStudio;
-using Microsoft.VisualStudio.ComponentModelHost;
-using Microsoft.VisualStudio.Editor;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using SqlSense.Commands;
@@ -36,9 +34,10 @@ namespace SqlSense
             Options = SettingsStore.Create(this);
             await SqlSenseCommands.InitializeAsync(this);
             var shell = await GetServiceAsync(typeof(SVsUIShell)) as IVsUIShell;
-            var componentModel = await GetServiceAsync(typeof(SComponentModel)) as IComponentModel;
+            var priorityTargets = await GetServiceAsync(typeof(SVsRegisterPriorityCommandTarget)) as IVsRegisterPriorityCommandTarget;
             await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-            ConnectionColors = ConnectionColorService.Create(shell, componentModel?.GetService<IVsEditorAdaptersFactoryService>());
+            ConnectionColors = ConnectionColorService.Create(shell);
+            _setTabColorBlocker = SetTabColorBlocker.Register(priorityTargets);
             Log.Info($"SqlSense {typeof(SqlSensePackage).Assembly.GetName().Version} loaded. Enabled: {SqlSenseSettings.Current.Enabled}.");
         }
 
@@ -48,6 +47,8 @@ namespace SqlSense
         /// <summary>Null when the shell or editor services were unavailable.</summary>
         internal ConnectionColorService ConnectionColors { get; private set; }
 
+        private SetTabColorBlocker _setTabColorBlocker;
+
         protected override void Dispose(bool disposing)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
@@ -55,6 +56,7 @@ namespace SqlSense
             {
                 Options?.Dispose();
                 ConnectionColors?.Dispose();
+                _setTabColorBlocker?.Dispose();
             }
             base.Dispose(disposing);
         }

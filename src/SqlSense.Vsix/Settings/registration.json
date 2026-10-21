@@ -88,6 +88,12 @@
       "default": true,
       "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\ExecGeneratesParameters" }, "mode": "oneTimeFromLegacy" } }
     },
+    "sqlSense.suggestions.alterScriptsDefinition": {
+      "type": "boolean",
+      "title": "ALTER scripts the object's definition",
+      "description": "In an empty batch, picking an object after ALTER (or CREATE OR ALTER) PROCEDURE, FUNCTION, VIEW or TRIGGER replaces the statement with the object's current definition.",
+      "default": true
+    },
     "sqlSense.suggestions.suggestJoinConditions": {
       "type": "boolean",
       "title": "Suggest JOIN conditions",
@@ -166,7 +172,8 @@
     },
     "sqlSense.formatting.globalVariableCase": {
       "type": "string",
-      "title": "@@variable case",
+      // Must not start with '@': Unified Settings reads "@…" as a resource id and SSMS crashes loading it.
+      "title": "Global variable case (@@ROWCOUNT …)",
       "description": "Case of system functions such as @@ROWCOUNT.",
       "default": "AsIs",
       "enum": [ "Upper", "Lower", "AsIs" ],
@@ -329,30 +336,29 @@
     "sqlSense.connectionColors.enabled": {
       "type": "boolean",
       "title": "Color query windows by connection",
-      "description": "Paint each query window's tab and editor border in a colour chosen by its server and database. The rules are in the connection colours file (Tools › SqlSense › Edit Connection Colors).",
+      "description": "Paint each query window's tab, editor frame and status bar in a colour chosen by its server and database. The rules are in the connection colours file (Tools › SqlSense › Edit Connection Colors).",
       "default": true
     },
     "sqlSense.connectionColors.colorTabs": {
       "type": "boolean",
-      "title": "Color document tabs",
-      "description": "Needs Environment › Tabs and Windows › Colorize document tabs to be on (any method).",
+      "title": "Color the document tab and the editor frame",
+      "description": "Uses the shell's own tab colours, which also colour the frame around the active document. Turns on Environment › Tabs and Windows › Colorize document tabs for the session if it is off.",
       "default": true,
       "enableWhen": "${config:sqlSense.connectionColors.enabled} == 'true'"
     },
-    "sqlSense.connectionColors.colorBorder": {
+    "sqlSense.connectionColors.hideSetTabColor": {
       "type": "boolean",
-      "title": "Color editor border",
-      "description": "Draw a frame in the connection colour around the query editor.",
+      "title": "Hide the tab menu's Set Tab Color",
+      "description": "Set Tab Color stores a colour per file, which would fight the connection colour on query windows. Use the tab menu's Connection Color instead.",
+      "default": true,
+      "enableWhen": "${config:sqlSense.connectionColors.colorTabs} == 'true'"
+    },
+    "sqlSense.connectionColors.colorStatusBar": {
+      "type": "boolean",
+      "title": "Color the query window status bar",
+      "description": "Replaces the status bar colour SSMS sets from the Connect dialog's 'Use custom color'.",
       "default": true,
       "enableWhen": "${config:sqlSense.connectionColors.enabled} == 'true'"
-    },
-    "sqlSense.connectionColors.borderThickness": {
-      "type": "integer",
-      "title": "Border thickness (pixels)",
-      "description": "1 to 20.",
-      "default": 3,
-      "minimum": 1,
-      "enableWhen": "${config:sqlSense.connectionColors.colorBorder} == 'true'"
     },
     "sqlSense.connectionColors.useSsmsColor": {
       "type": "boolean",

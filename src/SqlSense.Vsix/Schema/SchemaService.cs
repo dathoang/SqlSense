@@ -42,14 +42,7 @@ namespace SqlSense.Schema
                 return null;
             }
 
-            var connectionString = conn.ConnectionString;
-            var database = conn.Database;
-            if (!string.IsNullOrEmpty(databaseOverride) && !string.Equals(databaseOverride, conn.Database, StringComparison.OrdinalIgnoreCase))
-            {
-                connectionString = new SqlConnectionStringBuilder(connectionString) { InitialCatalog = databaseOverride }.ConnectionString;
-                database = databaseOverride;
-            }
-
+            var connectionString = ConnectionStringFor(conn, databaseOverride, out var database);
             var key = $"{conn.Server}|{database}|{conn.User}|{conn.AuthenticationType}".ToLowerInvariant();
             var entry = Cache.GetOrAdd(key, _ => new Entry());
             var maxAge = TimeSpan.FromMinutes(SqlSenseSettings.Current.SchemaCacheMinutes);
@@ -60,6 +53,17 @@ namespace SqlSense.Schema
                     entry.Loading = Task.Run(() => Load(entry, key, connectionString));
                 return entry.Schema;
             }
+        }
+
+        /// <summary>The window's connection string, switched to <paramref name="databaseOverride"/> when set. Null if unusable.</summary>
+        public static string ConnectionStringFor(SsmsConnectionInfo conn, string databaseOverride, out string database)
+        {
+            database = conn?.Database;
+            if (conn == null || conn.Unsupported != null) return null;
+            if (string.IsNullOrEmpty(databaseOverride) || string.Equals(databaseOverride, conn.Database, StringComparison.OrdinalIgnoreCase))
+                return conn.ConnectionString;
+            database = databaseOverride;
+            return new SqlConnectionStringBuilder(conn.ConnectionString) { InitialCatalog = databaseOverride }.ConnectionString;
         }
 
         public static void Clear()
