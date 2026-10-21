@@ -23,6 +23,9 @@ Release package: `.\deploy\Build-Package.ps1 -Version x.y.z [-Install]` (tests, 
 because of the Vietnamese messages). The user guide is `deploy\HUONG-DAN-SU-DUNG.md`; update it with new features.
 The package carries it as .docx, rendered by `deploy\tools\md-to-docx.js` (Node 22+, `docx` + `marked`, pinned in
 `deploy\tools\package.json`); it handles only the Markdown the guide uses, so check the .docx after adding new constructs.
+Website: `website/` (MkDocs Material, pinned in `website/requirements.txt`; `hooks.py` serves the guide from `deploy/`
+and fixes "đ" in heading anchors), published to https://dathoang.github.io/SqlSense/ by `.github/workflows/pages.yml`
+on push to main. Never use `docs/` for it (private, git-ignored). Check locally with `mkdocs build --strict -f website/mkdocs.yml`.
 `Directory.Build.props` redirects bin/obj to `%TEMP%\ssb` only when the checkout path is over 100 chars; here they're normal.
 
 ## Layout

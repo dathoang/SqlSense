@@ -4,6 +4,8 @@ SqlSense là extension cho **SQL Server Management Studio 22** (x64): gợi ý T
 (alias, điều kiện JOIN, INSERT/EXEC, mở rộng `SELECT *`, snippet), định dạng SQL an toàn, xuất kết quả ra Excel /
 INSERT và tô màu cửa sổ truy vấn theo server/database.
 
+Bản online của tài liệu này (có tìm kiếm): <https://dathoang.github.io/SqlSense/huong-dan/>
+
 ---
 
 ## 1. Cài đặt

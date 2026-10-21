@@ -1,0 +1,75 @@
+# Project site: https://dathoang.github.io/SqlSense/ (built by .github/workflows/pages.yml).
+# Local preview: pip install -r website/requirements.txt; mkdocs serve -f website/mkdocs.yml
+# Not docs/: that folder holds private notes and is git-ignored.
+site_name: SqlSense
+site_description: Gợi ý T-SQL theo schema, tự hoàn thành và định dạng SQL an toàn cho SQL Server Management Studio 22.
+site_url: https://dathoang.github.io/SqlSense/
+site_author: Dat Hoang
+repo_url: https://github.com/dathoang/SqlSense
+repo_name: dathoang/SqlSense
+edit_uri: ""
+copyright: MIT License © 2026 Dat Hoang
+docs_dir: src
+site_dir: ../dist/site
+
+hooks:
+  - hooks.py
+watch:
+  - ../deploy/HUONG-DAN-SU-DUNG.md
+
+nav:
+  - Trang chủ: index.md
+  - Hướng dẫn sử dụng: huong-dan.md
+
+theme:
+  name: material
+  language: vi
+  icon:
+    logo: material/database-search
+    repo: fontawesome/brands/github
+  favicon: assets/favicon.svg
+  features:
+    - navigation.tabs
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.highlight
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/weather-night
+        name: Chế độ tối
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/weather-sunny
+        name: Chế độ sáng
+
+plugins:
+  - search:
+      lang: [vi, en]
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/dathoang/SqlSense
