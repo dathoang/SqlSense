@@ -19,7 +19,9 @@ INSERT và tô màu cửa sổ truy vấn theo server/database.
 
 ### 1.2 Cài bằng bộ cài (khuyến nghị)
 
-Bộ cài là thư mục / file zip `SqlSense-<phiên bản>` gồm:
+Tải `SqlSense-<phiên bản>.zip` ở trang
+[Releases](https://github.com/dathoang/SqlSense/releases/latest) của GitHub. Bộ cài là thư mục / file zip
+`SqlSense-<phiên bản>` gồm:
 
 | File | Dùng để |
 |---|---|
@@ -28,6 +30,7 @@ Bộ cài là thư mục / file zip `SqlSense-<phiên bản>` gồm:
 | `Uninstall.cmd` / `Uninstall.ps1` | Gỡ cài đặt |
 | `SsmsSetup.ps1` | Hàm dùng chung cho hai script trên |
 | `HUONG-DAN-SU-DUNG.md` | Tài liệu này |
+| `LICENSE` | Giấy phép MIT |
 
 Các bước:
 

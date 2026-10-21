@@ -56,7 +56,9 @@ User guide (Vietnamese), from install to the main use cases: [deploy/HUONG-DAN-S
 
 ## Install
 
-Get `SqlSense-<version>.zip` (built below), unzip it, close SSMS 22 and double-click `Install.cmd`. It finds every
+Download `SqlSense-<version>.zip` from the [latest release](https://github.com/dathoang/SqlSense/releases/latest)
+(currently [1.2.0](https://github.com/dathoang/SqlSense/releases/tag/v1.2.0)) or build it (below), unzip it,
+close SSMS 22 and double-click `Install.cmd`. It finds every
 SSMS 22 instance with vswhere and runs SSMS's own `VSIXInstaller.exe` (per user, no admin rights). Double-clicking
 the `.vsix` itself may install into Visual Studio instead. `Uninstall.cmd` removes it.
 
@@ -127,3 +129,7 @@ Windows path-length failures; otherwise output is in the usual bin/obj folders.
 2. Type `SELECT * FROM ` and confirm the table list appears; pick one and check the alias.
 3. Type `ssf` + Tab, `JOIN … ON ` (FK suggestion), `EXEC ` + a procedure, and `SELECT *` + Tab.
 4. Paste a messy query and press Ctrl+K, Ctrl+Y.
+
+## License
+
+[MIT](LICENSE) © 2026 Dat Hoang. Bundles Microsoft.SqlServer.TransactSql.ScriptDom (MIT).

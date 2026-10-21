@@ -84,6 +84,7 @@ New-Item -ItemType Directory -Path $out -Force | Out-Null
 Copy-Item -LiteralPath $vsix -Destination $out
 Copy-Item -Path (Join-Path $PSScriptRoot 'package\*') -Destination $out
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'HUONG-DAN-SU-DUNG.md') -Destination $out
+Copy-Item -LiteralPath (Join-Path $root 'LICENSE') -Destination $out
 # Keep dist\SqlSense.vsix (referenced by README) pointing at the latest build.
 Copy-Item -LiteralPath $vsix -Destination (Join-Path $dist 'SqlSense.vsix') -Force
 
