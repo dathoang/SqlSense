@@ -5,7 +5,7 @@ using SqlSense.Core.Formatting;
 
 namespace SqlSense.Settings
 {
-    /// <summary>Current settings, updated from the options page. Read from any thread.</summary>
+    /// <summary>Current settings, updated by SettingsStore from Unified Settings. Read from any thread.</summary>
     internal sealed class SqlSenseSettings
     {
         public static SqlSenseSettings Current { get; private set; } = new SqlSenseSettings();
@@ -20,11 +20,21 @@ namespace SqlSense.Settings
         public int SchemaCacheMinutes { get; set; } = 30;
         public string SnippetsFolder { get; set; } = DefaultSnippetsFolder;
 
+        public bool ConnectionColors { get; set; } = true;
+        public bool ColorTabs { get; set; } = true;
+        public bool ColorBorder { get; set; } = true;
+        public int BorderThickness { get; set; } = 3;
+        public bool UseSsmsConnectionColor { get; set; } = true;
+        public string ConnectionColorsFile { get; set; } = DefaultConnectionColorsFile;
+
         public CompletionOptions Completion { get; set; } = new CompletionOptions();
         public FormatOptions Format { get; set; } = new FormatOptions();
 
         public static string DefaultSnippetsFolder =>
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "SqlSense", "Snippets");
+
+        public static string DefaultConnectionColorsFile =>
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "SqlSense", "ConnectionColors.txt");
 
         public static event EventHandler Changed;
 

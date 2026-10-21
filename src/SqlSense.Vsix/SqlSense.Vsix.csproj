@@ -48,6 +48,9 @@
     <Compile Include="SqlSensePackage.cs" />
     <Compile Include="PackageIds.cs" />
     <Compile Include="Commands\SqlSenseCommands.cs" />
+    <Compile Include="Connections\ConnectionColorMargin.cs" />
+    <Compile Include="Connections\ConnectionColorPicker.cs" />
+    <Compile Include="Connections\ConnectionColorService.cs" />
     <Compile Include="Diagnostics\Log.cs" />
     <Compile Include="Editor\SqlDocument.cs" />
     <Compile Include="Editor\SqlViewListener.cs" />
@@ -62,11 +65,15 @@
     <Compile Include="Schema\SsmsConnection.cs" />
     <Compile Include="Schema\SchemaLoader.cs" />
     <Compile Include="Schema\SchemaService.cs" />
-    <Compile Include="Settings\OptionsPage.cs" />
+    <Compile Include="Settings\SettingsStore.cs" />
     <Compile Include="Settings\SqlSenseSettings.cs" />
     <Compile Include="Settings\StyleImport.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Settings\registration.json">
+      <IncludeInVSIX>true</IncludeInVSIX>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <None Include="source.extension.vsixmanifest">
       <SubType>Designer</SubType>
     </None>
@@ -83,6 +90,7 @@
     <Reference Include="System.Design" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xaml" />
     <Reference Include="System.Xml" />
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />

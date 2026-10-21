@@ -10,9 +10,14 @@ namespace SqlSense.Settings
     /// <summary>Tools › SqlSense › Import SQL Prompt Style…: copies a SQL Prompt .json style into the formatter options.</summary>
     internal static class StyleImport
     {
-        public static void Run(IServiceProvider services, OptionsPage options)
+        public static void Run(IServiceProvider services, SettingsStore options)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
+            if (options == null)
+            {
+                Show(services, "Unified Settings is not available, so the style can't be saved.", OLEMSGICON.OLEMSGICON_WARNING);
+                return;
+            }
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
                 Title = "Import SQL Prompt formatting style",
@@ -24,7 +29,7 @@ namespace SqlSense.Settings
             StyleImportResult result;
             try
             {
-                result = SqlPromptStyle.Import(File.ReadAllText(dialog.FileName), options.GetFormatOptions());
+                result = SqlPromptStyle.Import(File.ReadAllText(dialog.FileName), options.ReadFormatOptions());
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is FormatException)
             {
@@ -33,9 +38,12 @@ namespace SqlSense.Settings
                 return;
             }
 
-            options.SetFormatOptions(result.Options);
-            options.SaveSettingsToStorage();
-            options.Publish();
+            var error = options.WriteFormatOptions(result.Options);
+            if (error != null)
+            {
+                Show(services, "Couldn't save the imported style:\n" + error, OLEMSGICON.OLEMSGICON_WARNING);
+                return;
+            }
 
             Log.Info("Imported SQL Prompt style " + dialog.FileName);
             foreach (var line in result.Applied) Log.Info("  applied: " + line);
@@ -44,7 +52,7 @@ namespace SqlSense.Settings
             var message = $"Imported {result.Applied.Count} setting(s) from {Path.GetFileName(dialog.FileName)}.";
             if (result.Ignored.Count > 0)
                 message += $"\n\n{result.Ignored.Count} setting(s) have no SqlSense equivalent yet:\n  " + string.Join("\n  ", result.Ignored);
-            message += "\n\nDetails are in Tools › SqlSense › Show Log; the values are in Tools › Options › SqlSense › 3. Formatting.";
+            message += "\n\nDetails are in Tools › SqlSense › Show Log; the values are in Tools › Options › SqlSense › Formatting.";
             Show(services, message, OLEMSGICON.OLEMSGICON_INFO);
         }
 

@@ -11,6 +11,13 @@
           <ButtonText>SqlSense</ButtonText>
         </Strings>
       </Menu>
+      <!-- Document tab right-click menu (IDM_VS_CTXT_EZDOCWINTAB). Empty, so hidden, on tabs that aren't connected query windows. -->
+      <Menu guid="guidSqlSenseCmdSet" id="SqlSenseTabMenu" priority="0x0100" type="Menu">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabGroup" />
+        <Strings>
+          <ButtonText>Connection Color</ButtonText>
+        </Strings>
+      </Menu>
     </Menus>
 
     <Groups>
@@ -23,6 +30,15 @@
       <!-- Right-click menu of the SSMS results grid (SQLWorkbenchCommands.IDM_SQLWB_SQLRESGRID_CONTEXT). -->
       <Group guid="guidSqlSenseCmdSet" id="SqlSenseGridContextGroup" priority="0x0700">
         <Parent guid="guidSqlEditorGroup" id="IDM_SQLWB_SQLRESGRID_CONTEXT" />
+      </Group>
+      <Group guid="guidSqlSenseCmdSet" id="SqlSenseTabGroup" priority="0x0050">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_EZDOCWINTAB" />
+      </Group>
+      <Group guid="guidSqlSenseCmdSet" id="SqlSenseTabColorGroup" priority="0x0100">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabMenu" />
+      </Group>
+      <Group guid="guidSqlSenseCmdSet" id="SqlSenseTabFileGroup" priority="0x0200">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabMenu" />
       </Group>
     </Groups>
 
@@ -74,6 +90,13 @@
           <CanonicalName>SqlSense.ImportSqlPromptStyle</CanonicalName>
         </Strings>
       </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidEditConnectionColors" priority="0x0106" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseMenuGroup" />
+        <Strings>
+          <ButtonText>Edit Connection Colors...</ButtonText>
+          <CanonicalName>SqlSense.EditConnectionColors</CanonicalName>
+        </Strings>
+      </Button>
       <Button guid="guidSqlSenseCmdSet" id="cmdidOpenResultsInExcel" priority="0x0100" type="Button">
         <Parent guid="guidSqlSenseCmdSet" id="SqlSenseResultsMenuGroup" />
         <Strings>
@@ -86,6 +109,56 @@
         <Strings>
           <ButtonText>Script Results as INSERT</ButtonText>
           <CanonicalName>SqlSense.ScriptResultsAsInsert</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabDatabaseColor" priority="0x0100" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabColorGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color for Database...</ButtonText>
+          <CanonicalName>SqlSense.TabDatabaseColor</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabServerColor" priority="0x0101" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabColorGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Color for Server...</ButtonText>
+          <CanonicalName>SqlSense.TabServerColor</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabClearDatabaseColor" priority="0x0102" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabColorGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Remove Color for Database</ButtonText>
+          <CanonicalName>SqlSense.TabClearDatabaseColor</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabClearServerColor" priority="0x0103" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabColorGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Remove Color for Server</ButtonText>
+          <CanonicalName>SqlSense.TabClearServerColor</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidTabEditConnectionColors" priority="0x0100" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseTabFileGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>TextChanges</CommandFlag>
+        <Strings>
+          <ButtonText>Edit Connection Colors File...</ButtonText>
+          <CanonicalName>SqlSense.TabEditConnectionColors</CanonicalName>
         </Strings>
       </Button>
     </Buttons>
@@ -122,6 +195,16 @@
       <IDSymbol name="cmdidOpenResultsInExcel" value="0x0105" />
       <IDSymbol name="cmdidScriptResultsAsInsert" value="0x0106" />
       <IDSymbol name="cmdidImportSqlPromptStyle" value="0x0107" />
+      <IDSymbol name="cmdidEditConnectionColors" value="0x0108" />
+      <IDSymbol name="cmdidTabDatabaseColor" value="0x0109" />
+      <IDSymbol name="cmdidTabServerColor" value="0x010A" />
+      <IDSymbol name="cmdidTabClearDatabaseColor" value="0x010B" />
+      <IDSymbol name="cmdidTabClearServerColor" value="0x010C" />
+      <IDSymbol name="cmdidTabEditConnectionColors" value="0x010D" />
+      <IDSymbol name="SqlSenseTabMenu" value="0x1050" />
+      <IDSymbol name="SqlSenseTabGroup" value="0x1060" />
+      <IDSymbol name="SqlSenseTabColorGroup" value="0x1070" />
+      <IDSymbol name="SqlSenseTabFileGroup" value="0x1080" />
       <IDSymbol name="SqlSenseResultsMenuGroup" value="0x1030" />
       <IDSymbol name="SqlSenseGridContextGroup" value="0x1040" />
     </GuidSymbol>

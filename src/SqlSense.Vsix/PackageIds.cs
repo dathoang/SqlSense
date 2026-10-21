@@ -21,5 +21,11 @@ namespace SqlSense
         public const int OpenResultsInExcel = 0x0105;
         public const int ScriptResultsAsInsert = 0x0106;
         public const int ImportSqlPromptStyle = 0x0107;
+        public const int EditConnectionColors = 0x0108;
+        public const int TabDatabaseColor = 0x0109;
+        public const int TabServerColor = 0x010A;
+        public const int TabClearDatabaseColor = 0x010B;
+        public const int TabClearServerColor = 0x010C;
+        public const int TabEditConnectionColors = 0x010D;
     }
 }

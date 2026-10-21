@@ -1,0 +1,380 @@
+{
+  // Unified Settings manifest: Tools › Options › SqlSense. Registered by ProvideSettingsManifest on SqlSensePackage.
+  // Monikers are read by Settings/SettingsStore.cs; keep the two in sync. Each setting is imported once from the
+  // pre-1.1 DialogPage values (registry DialogPage\SqlSense.Settings.OptionsPage) and lives in Unified Settings after that.
+  // Enum values are the C# enum member names.
+  "$schema": "registration.schema.json",
+  "properties": {
+    // General
+    "sqlSense.general.enabled": {
+      "type": "boolean",
+      "title": "Enabled",
+      "description": "Turn SqlSense on or off in SQL query windows.",
+      "default": true,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\Enabled" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.general.disableSsmsIntelliSense": {
+      "type": "boolean",
+      "title": "Turn off SSMS IntelliSense while SqlSense is enabled",
+      "description": "Switches off Languages › SQL › IntelliSense › Enable IntelliSense so its list doesn't compete with SqlSense's. It is switched back on when SqlSense is disabled or this option is cleared (only if SqlSense turned it off). Open query windows may need reopening.",
+      "default": true
+    },
+    "sqlSense.general.highlightInsertPairs": {
+      "type": "boolean",
+      "title": "Highlight INSERT columns and values",
+      "description": "With the caret on a column of an INSERT column list, highlight its values (and on a value, its column). The colour is 'SqlSense INSERT column/value' in Fonts and Colors.",
+      "default": true,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\HighlightInsertPairs" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.general.snippetsFolder": {
+      "type": "string",
+      "title": "Snippets folder",
+      "description": "Folder of user snippets: each <shortcut>.sql file becomes a snippet. An optional first line '-- text' is its description; $CURSOR$ marks the caret. Empty = Documents\\SqlSense\\Snippets.",
+      "default": "",
+      "format": "path",
+      "pathKind": "folder",
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\SnippetsFolder" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.general.schemaCacheMinutes": {
+      "type": "integer",
+      "title": "Schema cache (minutes)",
+      "description": "How long database metadata is reused before it is reloaded.",
+      "default": 30,
+      "minimum": 1,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\SchemaCacheMinutes" }, "mode": "oneTimeFromLegacy" } }
+    },
+
+    // Suggestions
+    "sqlSense.suggestions.autoTrigger": {
+      "type": "boolean",
+      "title": "Show suggestions while typing",
+      "description": "Open the list automatically as you type. Ctrl+Space always opens it.",
+      "default": true,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\AutoTrigger" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.suggestions.autoAlias": {
+      "type": "boolean",
+      "title": "Add table aliases",
+      "description": "Picking a table in FROM/JOIN appends a generated alias (Customers → c).",
+      "default": true,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\AutoAlias" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.suggestions.aliasWithAs": {
+      "type": "boolean",
+      "title": "Use AS before aliases",
+      "description": "Write 'Customers AS c' instead of 'Customers c'.",
+      "default": true,
+      "enableWhen": "${config:sqlSense.suggestions.autoAlias} == 'true'",
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\AliasWithAs" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.suggestions.alwaysQualifySchema": {
+      "type": "boolean",
+      "title": "Always qualify with schema",
+      "description": "Insert dbo.Customers rather than Customers.",
+      "default": true,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\AlwaysQualifySchema" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.suggestions.insertGeneratesColumns": {
+      "type": "boolean",
+      "title": "INSERT INTO adds column list",
+      "description": "Picking a table after INSERT INTO writes the column list and a VALUES template.",
+      "default": true,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\InsertGeneratesColumns" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.suggestions.execGeneratesParameters": {
+      "type": "boolean",
+      "title": "EXEC adds parameters",
+      "description": "Picking a procedure after EXEC writes its parameters.",
+      "default": true,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\ExecGeneratesParameters" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.suggestions.suggestJoinConditions": {
+      "type": "boolean",
+      "title": "Suggest JOIN conditions",
+      "description": "After JOIN … ON, offer conditions from foreign keys.",
+      "default": true,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\SuggestJoinConditions" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.suggestions.autoCloseBrackets": {
+      "type": "boolean",
+      "title": "Close brackets and quotes",
+      "description": "Typing ( [ or ' inserts the closing character.",
+      "default": true,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\AutoCloseBrackets" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.suggestions.tabExpandsSnippets": {
+      "type": "boolean",
+      "title": "Tab expands snippets",
+      "description": "Typing a snippet shortcut (ssf, st100, …) and pressing Tab expands it.",
+      "default": true,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\TabExpandsSnippets" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.suggestions.tabExpandsWildcard": {
+      "type": "boolean",
+      "title": "Tab expands SELECT *",
+      "description": "Pressing Tab right after * in a select list replaces it with the column list.",
+      "default": true,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\TabExpandsWildcard" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.suggestions.includeSystemObjects": {
+      "type": "boolean",
+      "title": "Include system objects",
+      "description": "Suggest sys.* and INFORMATION_SCHEMA views.",
+      "default": true,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\IncludeSystemObjects" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.suggestions.uppercaseKeywords": {
+      "type": "boolean",
+      "title": "Upper-case keywords",
+      "description": "Keywords inserted by suggestions are upper case.",
+      "default": true,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\UppercaseKeywords" }, "mode": "oneTimeFromLegacy" } }
+    },
+
+    // Formatting
+    "sqlSense.formatting.indentSize": {
+      "type": "integer",
+      "title": "Indent size",
+      "default": 4,
+      "minimum": 1,
+      "maximum": 16,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\IndentSize" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.keywordCase": {
+      "type": "string",
+      "title": "Keyword case",
+      "default": "Upper",
+      "enum": [ "Upper", "Lower", "AsIs" ],
+      "enumItemLabels": [ "UPPER", "lower", "As is" ],
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\KeywordCase" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.functionCase": {
+      "type": "string",
+      "title": "Function case",
+      "default": "Upper",
+      "enum": [ "Upper", "Lower", "AsIs" ],
+      "enumItemLabels": [ "UPPER", "lower", "As is" ],
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\FunctionCase" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.dataTypeCase": {
+      "type": "string",
+      "title": "Data type case",
+      "default": "Lower",
+      "enum": [ "Upper", "Lower", "AsIs" ],
+      "enumItemLabels": [ "UPPER", "lower", "As is" ],
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\DataTypeCase" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.globalVariableCase": {
+      "type": "string",
+      "title": "@@variable case",
+      "description": "Case of system functions such as @@ROWCOUNT.",
+      "default": "AsIs",
+      "enum": [ "Upper", "Lower", "AsIs" ],
+      "enumItemLabels": [ "UPPER", "lower", "As is" ],
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\GlobalVariableCase" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.useObjectDefinitionCase": {
+      "type": "boolean",
+      "title": "Use object definition case",
+      "description": "Write table, view, routine, schema and column names as they are defined in the database. Needs the schema to be loaded; names defined in two spellings are left alone.",
+      "default": false,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\UseObjectDefinitionCase" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.leadingCommas": {
+      "type": "boolean",
+      "title": "Leading commas",
+      "description": "Put commas at the start of lines.",
+      "default": false,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\LeadingCommas" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.oneItemPerLine": {
+      "type": "boolean",
+      "title": "One list item per line",
+      "description": "Select lists, GROUP BY, ORDER BY and SET get one item per line.",
+      "default": true,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\OneItemPerLine" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.breakAfterDistinctTop": {
+      "type": "boolean",
+      "title": "New line after DISTINCT / TOP",
+      "description": "SELECT DISTINCT / TOP (n) put the first select item on the next line.",
+      "default": false,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\BreakAfterDistinctTop" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.breakOnAndOr": {
+      "type": "boolean",
+      "title": "New line before AND / OR",
+      "default": true,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\BreakOnAndOr" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.indentJoins": {
+      "type": "boolean",
+      "title": "Indent JOINs under FROM",
+      "default": true,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\IndentJoins" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.firstWhenOnNewLine": {
+      "type": "string",
+      "title": "First WHEN on new line",
+      "description": "Never: the first WHEN stays after CASE and the rest line up under it. If input expression: new line only for CASE x WHEN ….",
+      "default": "Always",
+      "enum": [ "Always", "Never", "IfInputExpression" ],
+      "enumItemLabels": [ "Always", "Never", "If input expression" ],
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\FirstWhenOnNewLine" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.spaceInsideInLists": {
+      "type": "boolean",
+      "title": "Spaces inside IN lists",
+      "description": "Write IN ( 1, 2 ) instead of IN (1, 2).",
+      "default": false,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\SpaceInsideInLists" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.subqueryParenStyle": {
+      "type": "string",
+      "title": "Subquery parentheses",
+      "description": "Expanded split: '(' ends the line and ')' gets its own line. Expanded to statement: '(' also gets its own line.",
+      "default": "ExpandedSplit",
+      "enum": [ "ExpandedSplit", "ExpandedToStatement" ],
+      "enumItemLabels": [ "Expanded split", "Expanded to statement" ],
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\SubqueryParenStyle" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.ddlParenStyle": {
+      "type": "string",
+      "title": "CREATE TABLE parentheses",
+      "description": "Expanded split: '(' ends the line and ')' gets its own line. Expanded to statement: '(' also gets its own line.",
+      "default": "ExpandedSplit",
+      "enum": [ "ExpandedSplit", "ExpandedToStatement" ],
+      "enumItemLabels": [ "Expanded split", "Expanded to statement" ],
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\DdlParenStyle" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.ddlConstraintsOnNewLines": {
+      "type": "boolean",
+      "title": "Constraints on new lines",
+      "description": "In CREATE TABLE, column constraints (CONSTRAINT, PRIMARY KEY, DEFAULT, REFERENCES, CHECK, …) get their own line.",
+      "default": false,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\DdlConstraintsOnNewLines" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.constraintColumnsOnNewLines": {
+      "type": "string",
+      "title": "Constraint columns on new lines",
+      "description": "Columns of PRIMARY KEY / UNIQUE / REFERENCES / INDEX ( … ) in CREATE TABLE go one per line.",
+      "default": "Never",
+      "enum": [ "Never", "Always", "IfMultipleItems" ],
+      "enumItemLabels": [ "Never", "Always", "If multiple items" ],
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\ConstraintColumnsOnNewLines" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.alignAliases": {
+      "type": "boolean",
+      "title": "Align aliases",
+      "description": "Line up the column aliases of a multi-line select list.",
+      "default": false,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\AlignAliases" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.alignComments": {
+      "type": "boolean",
+      "title": "Align comments",
+      "description": "Line up end-of-line comments within a clause.",
+      "default": false,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\AlignComments" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.alignMultilineComments": {
+      "type": "boolean",
+      "title": "Align multi-line comments",
+      "description": "Move the following lines of a /* … */ comment along with its first line.",
+      "default": false,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\AlignMultilineComments" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.keepBlankLinesAfterGo": {
+      "type": "boolean",
+      "title": "Keep blank lines after GO",
+      "default": true,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\KeepBlankLinesAfterGo" }, "mode": "oneTimeFromLegacy" } }
+    },
+
+    // Formatting › Collapse short code (0 = never)
+    "sqlSense.formatting.collapse.statementsShorterThan": {
+      "type": "integer",
+      "title": "Statements shorter than",
+      "description": "SELECT/INSERT/UPDATE/DELETE/MERGE statements shorter than this many characters stay on one line. 0 = never.",
+      "default": 0,
+      "minimum": 0,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\CollapseStatementsShorterThan" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.collapse.subqueriesShorterThan": {
+      "type": "integer",
+      "title": "Subqueries shorter than",
+      "description": "Subqueries in parentheses shorter than this many characters stay on one line. 0 = never.",
+      "default": 0,
+      "minimum": 0,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\CollapseSubqueriesShorterThan" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.collapse.caseShorterThan": {
+      "type": "integer",
+      "title": "CASE shorter than",
+      "description": "CASE expressions shorter than this many characters stay on one line. 0 = never.",
+      "default": 0,
+      "minimum": 0,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\CollapseCaseShorterThan" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.collapse.ddlShorterThan": {
+      "type": "integer",
+      "title": "CREATE TABLE shorter than",
+      "description": "CREATE TABLE / DECLARE @t TABLE statements shorter than this many characters keep their column list on one line. 0 = never.",
+      "default": 0,
+      "minimum": 0,
+      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\CollapseDdlShorterThan" }, "mode": "oneTimeFromLegacy" } }
+    },
+
+    // Connection colours
+    "sqlSense.connectionColors.enabled": {
+      "type": "boolean",
+      "title": "Color query windows by connection",
+      "description": "Paint each query window's tab and editor border in a colour chosen by its server and database. The rules are in the connection colours file (Tools › SqlSense › Edit Connection Colors).",
+      "default": true
+    },
+    "sqlSense.connectionColors.colorTabs": {
+      "type": "boolean",
+      "title": "Color document tabs",
+      "description": "Needs Environment › Tabs and Windows › Colorize document tabs to be on (any method).",
+      "default": true,
+      "enableWhen": "${config:sqlSense.connectionColors.enabled} == 'true'"
+    },
+    "sqlSense.connectionColors.colorBorder": {
+      "type": "boolean",
+      "title": "Color editor border",
+      "description": "Draw a frame in the connection colour around the query editor.",
+      "default": true,
+      "enableWhen": "${config:sqlSense.connectionColors.enabled} == 'true'"
+    },
+    "sqlSense.connectionColors.borderThickness": {
+      "type": "integer",
+      "title": "Border thickness (pixels)",
+      "description": "1 to 20.",
+      "default": 3,
+      "minimum": 1,
+      "enableWhen": "${config:sqlSense.connectionColors.colorBorder} == 'true'"
+    },
+    "sqlSense.connectionColors.useSsmsColor": {
+      "type": "boolean",
+      "title": "Fall back to the SSMS connection color",
+      "description": "Windows that no rule matches use the colour picked in the Connect dialog (Options › Use custom color).",
+      "default": true,
+      "enableWhen": "${config:sqlSense.connectionColors.enabled} == 'true'"
+    },
+    "sqlSense.connectionColors.rulesFile": {
+      "type": "string",
+      "title": "Connection colours file",
+      "description": "Rules 'server[/database] = colour', one per line; changes apply when the file is saved. Empty = Documents\\SqlSense\\ConnectionColors.txt.",
+      "default": "",
+      "enableWhen": "${config:sqlSense.connectionColors.enabled} == 'true'"
+    }
+  },
+  "categories": {
+    "sqlSense": { "title": "SqlSense" },
+    "sqlSense.general": { "title": "General", "order": 1 },
+    "sqlSense.suggestions": { "title": "Suggestions", "order": 2 },
+    "sqlSense.formatting": { "title": "Formatting", "order": 3 },
+    "sqlSense.formatting.collapse": { "title": "Collapse short code" },
+    "sqlSense.connectionColors": { "title": "Connection Colors", "order": 4 }
+  }
+}
