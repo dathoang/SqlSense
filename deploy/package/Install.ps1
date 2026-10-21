@@ -58,7 +58,7 @@ $logPath = Join-Path $env:TEMP $log
 switch ($p.ExitCode) {
     0 {
         Write-Host "Đã cài SqlSense $($ext.Version)." -ForegroundColor Green
-        Write-Host 'Mở SSMS 22, kiểm tra menu Tools › SqlSense. Hướng dẫn: HUONG-DAN-SU-DUNG.md'
+        Write-Host 'Mở SSMS 22, kiểm tra menu Tools › SqlSense. Hướng dẫn: HUONG-DAN-SU-DUNG.docx'
     }
     1001 {
         Write-Warning "Phiên bản $($ext.Version) đã được cài rồi. Muốn cài lại: chạy Uninstall.ps1 rồi Install.ps1, hoặc dùng bản VSIX có Version cao hơn."

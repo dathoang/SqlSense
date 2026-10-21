@@ -20,7 +20,8 @@ INSERT và tô màu cửa sổ truy vấn theo server/database.
 ### 1.2 Cài bằng bộ cài (khuyến nghị)
 
 Tải `SqlSense-<phiên bản>.zip` ở trang
-[Releases](https://github.com/dathoang/SqlSense/releases/latest) của GitHub. Bộ cài là thư mục / file zip
+[Releases](https://github.com/dathoang/SqlSense/releases/latest) của GitHub. Trang này cũng có riêng file
+`SqlSense-<phiên bản>.vsix` (cài thủ công, mục 1.3) và tài liệu này dạng Word. Bộ cài là thư mục / file zip
 `SqlSense-<phiên bản>` gồm:
 
 | File | Dùng để |
@@ -29,7 +30,7 @@ Tải `SqlSense-<phiên bản>.zip` ở trang
 | `Install.cmd` / `Install.ps1` | Cài hoặc nâng cấp |
 | `Uninstall.cmd` / `Uninstall.ps1` | Gỡ cài đặt |
 | `SsmsSetup.ps1` | Hàm dùng chung cho hai script trên |
-| `HUONG-DAN-SU-DUNG.md` | Tài liệu này |
+| `HUONG-DAN-SU-DUNG.docx` | Tài liệu này (Word) |
 | `LICENSE` | Giấy phép MIT |
 
 Các bước:
@@ -329,7 +330,8 @@ Khi báo lỗi, gửi kèm nội dung **Show Log**, phiên bản SqlSense (Exten
 
 ## 7. Dành cho người build bộ cài
 
-Yêu cầu: Visual Studio 2022/2026 với workload **Visual Studio extension development** và .NET SDK.
+Yêu cầu: Visual Studio 2022/2026 với workload **Visual Studio extension development**, .NET SDK và Node.js 22+
+(để sinh tài liệu Word từ `deploy\HUONG-DAN-SU-DUNG.md`; lần đầu script tự chạy `npm ci` trong `deploy\tools`).
 
 ```powershell
 .\deploy\Build-Package.ps1 -Version 1.2.0           # test + rebuild + đóng gói
@@ -337,6 +339,7 @@ Yêu cầu: Visual Studio 2022/2026 với workload **Visual Studio extension dev
 .\deploy\Build-Package.ps1 -SkipTests               # giữ nguyên phiên bản, bỏ qua unit test
 ```
 
-Kết quả: `dist\SqlSense-<version>\` và `dist\SqlSense-<version>.zip` (VSIX + script cài/gỡ + tài liệu này);
-`dist\SqlSense.vsix` luôn là bản build mới nhất. **Phải tăng `-Version`** mỗi lần phát hành, nếu không máy đã cài
+Kết quả: `dist\SqlSense-<version>\` và `dist\SqlSense-<version>.zip` (VSIX + script cài/gỡ + tài liệu Word +
+LICENSE), cùng `dist\SqlSense-<version>.vsix` và `dist\HUONG-DAN-SU-DUNG-<version>.docx` để đính kèm riêng lên
+GitHub Release; `dist\SqlSense.vsix` luôn là bản build mới nhất. **Phải tăng `-Version`** mỗi lần phát hành, nếu không máy đã cài
 bản cũ sẽ từ chối cài đè.

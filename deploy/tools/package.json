@@ -1,0 +1,10 @@
+{
+  "name": "sqlsense-deploy-tools",
+  "private": true,
+  "description": "Build-time helpers for deploy/Build-Package.ps1 (user guide Markdown -> .docx).",
+  "type": "commonjs",
+  "dependencies": {
+    "docx": "9.13.0",
+    "marked": "18.1.1"
+  }
+}

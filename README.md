@@ -70,10 +70,11 @@ Manual install: `VSIXInstaller.exe /instanceIds:<id> SqlSense.vsix` from SSMS's 
 
 ## Build
 
-Requires Visual Studio 2026 (or 2022) with the *Visual Studio extension development* workload and the .NET SDK.
+Requires Visual Studio 2026 (or 2022) with the *Visual Studio extension development* workload, the .NET SDK and
+Node.js 22+ (renders the user guide to .docx via `deploy\tools`; `npm ci` runs there on first use).
 
 ```powershell
-.\deploy\Build-Package.ps1 -Version 1.2.0           # tests, Rebuild Release, dist\SqlSense-1.2.0.zip
+.\deploy\Build-Package.ps1 -Version 1.2.0           # tests, Rebuild Release, zip + separate .vsix and .docx in dist\
 .\deploy\Build-Package.ps1 -Version 1.2.0 -Install  # ... and install into this machine's SSMS 22
 ```
 

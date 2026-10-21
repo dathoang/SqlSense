@@ -7,7 +7,8 @@
     2. runs the engine tests (dotnet test)
     3. Rebuilds the VSIX in Release with Visual Studio's MSBuild (found with vswhere; needs the VS extension workload).
        Rebuild, not Build: an incremental build can keep the previous manifest version in the .vsix.
-    4. copies SqlSense.vsix, the install scripts and the user guide into dist and zips them.
+    4. copies SqlSense.vsix, the install scripts and LICENSE into dist, renders the user guide to .docx, and zips them.
+       dist also gets SqlSense-<version>.vsix and HUONG-DAN-SU-DUNG-<version>.docx for separate download.
 
 .PARAMETER Version
     New extension version (e.g. 1.2.0). Required to reinstall over an existing install: VSIXInstaller refuses
@@ -83,9 +84,26 @@ New-Item -ItemType Directory -Path $out -Force | Out-Null
 
 Copy-Item -LiteralPath $vsix -Destination $out
 Copy-Item -Path (Join-Path $PSScriptRoot 'package\*') -Destination $out
-Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'HUONG-DAN-SU-DUNG.md') -Destination $out
 Copy-Item -LiteralPath (Join-Path $root 'LICENSE') -Destination $out
-# Keep dist\SqlSense.vsix (referenced by README) pointing at the latest build.
+
+# User guide: Markdown in the repo, Word in the package (deploy\tools\md-to-docx.js, needs Node.js 22+).
+$tools = Join-Path $PSScriptRoot 'tools'
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) { throw 'Node.js 22+ is needed to build the user guide (.docx).' }
+if (-not (Test-Path -LiteralPath (Join-Path $tools 'node_modules'))) {
+    Step 'npm ci (deploy\tools)'
+    & npm ci --prefix $tools --no-audit --no-fund
+    if ($LASTEXITCODE -ne 0) { throw 'npm ci failed in deploy\tools.' }
+}
+$guide = Join-Path $out 'HUONG-DAN-SU-DUNG.docx'
+& node --no-warnings (Join-Path $tools 'md-to-docx.js') (Join-Path $PSScriptRoot 'HUONG-DAN-SU-DUNG.md') $guide $Version
+if ($LASTEXITCODE -ne 0) { throw 'Building the user guide failed.' }
+
+# Release assets next to the zip: the VSIX and the guide on their own, versioned.
+$releaseVsix = Join-Path $dist "SqlSense-$Version.vsix"
+$releaseGuide = Join-Path $dist "HUONG-DAN-SU-DUNG-$Version.docx"
+Copy-Item -LiteralPath $vsix -Destination $releaseVsix -Force
+Copy-Item -LiteralPath $guide -Destination $releaseGuide -Force
+# Keep dist\SqlSense.vsix pointing at the latest build.
 Copy-Item -LiteralPath $vsix -Destination (Join-Path $dist 'SqlSense.vsix') -Force
 
 $zip = Join-Path $dist "$name.zip"
@@ -98,6 +116,8 @@ Write-Host "SqlSense $Version" -ForegroundColor Green
 Write-Host "  VSIX    $($built.Length.ToString('N0')) bytes"
 Write-Host "  Folder  $out"
 Write-Host "  Zip     $zip"
+Write-Host "  Assets  $releaseVsix"
+Write-Host "          $releaseGuide"
 
 if ($Install) {
     Step 'Install'

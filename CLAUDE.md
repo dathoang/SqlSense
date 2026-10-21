@@ -21,6 +21,8 @@ Bump `Version` in `source.extension.vsixmanifest` before reinstalling over an ex
 Release package: `.\deploy\Build-Package.ps1 -Version x.y.z [-Install]` (tests, Rebuild, `dist\SqlSense-x.y.z.zip`).
 `deploy\package\*` ships to users as-is (Install/Uninstall scripts; Windows PowerShell 5.1, saved as UTF-8 with BOM
 because of the Vietnamese messages). The user guide is `deploy\HUONG-DAN-SU-DUNG.md`; update it with new features.
+The package carries it as .docx, rendered by `deploy\tools\md-to-docx.js` (Node 22+, `docx` + `marked`, pinned in
+`deploy\tools\package.json`); it handles only the Markdown the guide uses, so check the .docx after adding new constructs.
 `Directory.Build.props` redirects bin/obj to `%TEMP%\ssb` only when the checkout path is over 100 chars; here they're normal.
 
 ## Layout
