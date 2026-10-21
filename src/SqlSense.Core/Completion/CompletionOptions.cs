@@ -23,6 +23,9 @@ namespace SqlSense.Core.Completion
         /// <summary>Offer foreign-key based conditions after JOIN … ON.</summary>
         public bool SuggestJoinConditions { get; set; } = true;
 
+        /// <summary>Offer conditions on same-named columns after JOIN … ON (also for CTEs and temp tables).</summary>
+        public bool SuggestSameNameJoins { get; set; } = true;
+
         /// <summary>Keyword case used by completion items.</summary>
         public bool UppercaseKeywords { get; set; } = true;
     }

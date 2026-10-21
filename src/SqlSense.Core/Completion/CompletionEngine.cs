@@ -255,10 +255,21 @@ namespace SqlSense.Core.Completion
 
         private void AddExpression(CompletionContext ctx, DatabaseSchema schema, List<CompletionItem> items)
         {
-            if (ctx.IsJoinCondition && Options.SuggestJoinConditions)
+            if (ctx.IsJoinCondition)
             {
-                foreach (var cond in JoinConditions.Suggest(ctx.TablesInScope, schema))
-                    items.Add(new CompletionItem(cond, cond, CompletionItemKind.JoinCondition, "join on foreign key") { Priority = -10 });
+                // FK conditions first, then same-named columns in generator order (priority keeps that order).
+                var conditions = new HashSet<string>(Ci);
+                if (Options.SuggestJoinConditions)
+                    foreach (var cond in JoinConditions.Suggest(ctx.TablesInScope, schema))
+                        if (conditions.Add(cond))
+                            items.Add(new CompletionItem(cond, cond, CompletionItemKind.JoinCondition, "join on foreign key") { Priority = -1000 });
+                if (Options.SuggestSameNameJoins)
+                {
+                    var priority = -999;
+                    foreach (var cond in JoinConditions.SameName(ctx.TablesInScope))
+                        if (conditions.Add(cond))
+                            items.Add(new CompletionItem(cond, cond, CompletionItemKind.JoinCondition, "join on same column name") { Priority = priority++ });
+                }
             }
 
             var refs = ctx.TablesInScope;

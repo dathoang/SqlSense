@@ -101,6 +101,12 @@
       "default": true,
       "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\SuggestJoinConditions" }, "mode": "oneTimeFromLegacy" } }
     },
+    "sqlSense.suggestions.suggestSameNameJoins": {
+      "type": "boolean",
+      "title": "Suggest JOIN on same-named columns",
+      "description": "After JOIN … ON, also offer conditions on columns with the same name in both tables (key-like names such as …ID or …Code first). Works for CTEs and temp tables too.",
+      "default": true
+    },
     "sqlSense.suggestions.autoCloseBrackets": {
       "type": "boolean",
       "title": "Close brackets and quotes",

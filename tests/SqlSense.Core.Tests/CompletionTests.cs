@@ -131,6 +131,42 @@ namespace SqlSense.Core.Tests
             var r = Complete("SELECT * FROM dbo.Customers AS c INNER JOIN sales.SalesOrderHeader AS soh ON |");
             Assert.Equal(CompletionItemKind.JoinCondition, r.Items[0].Kind);
             Assert.Equal("soh.CustomerID = c.CustomerID", r.Items[0].InsertText);
+            Assert.Single(r.Items, i => i.InsertText == "soh.CustomerID = c.CustomerID");
+        }
+
+        [Fact]
+        public void Join_on_suggests_same_named_columns_without_schema()
+        {
+            var text = "WITH a AS (SELECT CustomerID, RegionCode, Name FROM x), b AS (SELECT CustomerID, RegionCode, Name, Total FROM y)\n" +
+                       "SELECT * FROM a JOIN b ON ";
+            var r = _engine.GetCompletions(text, text.Length, null);
+            var conds = r.Items.Where(i => i.Kind == CompletionItemKind.JoinCondition).Select(i => i.InsertText).ToList();
+            Assert.Equal(new[]
+            {
+                "b.CustomerID = a.CustomerID AND b.RegionCode = a.RegionCode",
+                "b.CustomerID = a.CustomerID",
+                "b.RegionCode = a.RegionCode",
+                "b.Name = a.Name",
+            }, conds);
+            Assert.Equal(conds, r.Items.Take(conds.Count).Select(i => i.InsertText));
+        }
+
+        [Fact]
+        public void Same_name_join_skips_identity_on_both_sides()
+        {
+            var r = Complete("SELECT * FROM dbo.Customers AS c JOIN dbo.Customers AS c2 ON |");
+            var conds = r.Items.Where(i => i.Kind == CompletionItemKind.JoinCondition).Select(i => i.InsertText).ToList();
+            Assert.DoesNotContain("c2.CustomerID = c.CustomerID", conds);
+            Assert.Contains("c2.Name = c.Name", conds);
+        }
+
+        [Fact]
+        public void Same_name_join_can_be_turned_off()
+        {
+            var engine = new CompletionEngine { NewLine = "\n", Options = new CompletionOptions { SuggestSameNameJoins = false } };
+            var text = "WITH a AS (SELECT CustomerID FROM x), b AS (SELECT CustomerID FROM y) SELECT * FROM a JOIN b ON ";
+            var r = engine.GetCompletions(text, text.Length, null);
+            Assert.DoesNotContain(r.Items, i => i.Kind == CompletionItemKind.JoinCondition);
         }
 
         [Fact]

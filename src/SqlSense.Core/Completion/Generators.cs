@@ -37,7 +37,7 @@ namespace SqlSense.Core.Completion
             SqlVocabulary.Keywords.Contains(word.ToUpperInvariant());
     }
 
-    /// <summary>Foreign-key based join conditions between the newest joined table and earlier ones.</summary>
+    /// <summary>Join conditions between the newest joined table and earlier ones: from foreign keys or same-named columns.</summary>
     public static class JoinConditions
     {
         public static List<string> Suggest(List<TableRef> refs, DatabaseSchema schema)
@@ -57,21 +57,56 @@ namespace SqlSense.Core.Completion
                         result.Add(Condition(joined, fk.ToColumns, other, fk.FromColumns));
                 }
             }
-            // No FK: offer same-named key-like columns (e.g. CustomerID on both sides).
-            if (result.Count == 0)
+            return result.Distinct().ToList();
+        }
+
+        /// <summary>
+        /// Conditions on columns with the same name in the joined table and an earlier one (nearest first). Works without
+        /// a schema (CTEs, temp tables, derived tables). Key-like names (…ID, …Code, …Key, …No) come first, and several
+        /// of them on one pair also give a combined AND condition. Columns whose types differ, or that are the identity
+        /// of both tables (two unrelated surrogate keys), are skipped.
+        /// </summary>
+        public static List<string> SameName(List<TableRef> refs)
+        {
+            var result = new List<string>();
+            if (refs.Count < 2) return result;
+            var joined = refs[refs.Count - 1];
+            var joinedCols = joined.ColumnNames.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (joinedCols.Count == 0) return result;
+            foreach (var other in refs.Take(refs.Count - 1).Reverse())
             {
-                foreach (var other in refs.Take(refs.Count - 1).Reverse())
-                {
-                    if (other.Object == null) continue;
-                    foreach (var c in joined.Object.Columns)
-                    {
-                        if (!c.Name.EndsWith("id", StringComparison.OrdinalIgnoreCase)) continue;
-                        if (other.Object.Columns.Any(o => string.Equals(o.Name, c.Name, StringComparison.OrdinalIgnoreCase)))
-                            result.Add(Condition(joined, new[] { c.Name }, other, new[] { c.Name }));
-                    }
-                }
+                var common = joinedCols
+                    .Where(c => other.ColumnNames.Any(o => string.Equals(o, c, StringComparison.OrdinalIgnoreCase)))
+                    .Where(c => Joinable(Column(joined, c), Column(other, c)))
+                    .ToList();
+                var keys = common.Where(IsKeyLike).ToList();
+                if (keys.Count > 1) result.Add(Condition(joined, keys, other, keys));
+                foreach (var c in keys.Concat(common.Where(c => !IsKeyLike(c))))
+                    result.Add(Condition(joined, new[] { c }, other, new[] { c }));
             }
             return result.Distinct().ToList();
+        }
+
+        private static readonly string[] KeySuffixes = { "id", "code", "key", "no", "num", "number" };
+
+        private static bool IsKeyLike(string column) =>
+            KeySuffixes.Any(s => column.EndsWith(s, StringComparison.OrdinalIgnoreCase));
+
+        private static DbColumn Column(TableRef r, string name) =>
+            r.Object?.Columns.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+
+        private static bool Joinable(DbColumn a, DbColumn b)
+        {
+            if (a == null || b == null) return true;
+            if (a.IsIdentity && b.IsIdentity) return false;
+            return string.Equals(BaseType(a.DataType), BaseType(b.DataType), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string BaseType(string dataType)
+        {
+            var t = (dataType ?? string.Empty).Trim();
+            var paren = t.IndexOf('(');
+            return paren >= 0 ? t.Substring(0, paren).Trim() : t;
         }
 
         private static bool Is(string schema, string table, DbObject o) =>

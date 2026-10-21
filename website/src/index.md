@@ -27,7 +27,7 @@ thường gặp và định dạng SQL mà không bao giờ làm đổi nghĩa c
 
     ---
 
-    Alias không trùng, điều kiện `JOIN … ON` từ khoá ngoại, khuôn `INSERT … VALUES` và tham số `EXEC`, mở rộng
+    Alias không trùng, điều kiện `JOIN … ON` từ khoá ngoại và cột cùng tên, khuôn `INSERT … VALUES` và tham số `EXEC`, mở rộng
     `SELECT *` thành danh sách cột, snippet (`ssf`, `bt`, `cte` … + Tab).
 
 -   :material-file-replace-outline: **ALTER có sẵn định nghĩa**

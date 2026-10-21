@@ -104,7 +104,7 @@ SELECT * FROM cus⇥       →  SELECT * FROM dbo.Customers AS c
 * Gõ `c.` → chỉ cột của bảng có alias `c`; `dbo.` → các object trong schema; `TenDb.` → các schema.
 * Nhận biết CTE, bảng tạm `#t` (`CREATE TABLE #t`, `SELECT … INTO #t`), biến bảng, derived table.
 
-### 2.2 JOIN theo khoá ngoại
+### 2.2 JOIN theo khoá ngoại và cột cùng tên
 
 ```sql
 SELECT *
@@ -113,7 +113,15 @@ FROM dbo.SalesOrderHeader AS soh
     ON ⇥                         →  ON soh.CustomerID = c.CustomerID
 ```
 
-Sau `JOIN … ON` SqlSense đề xuất điều kiện lấy từ foreign key giữa các bảng.
+Sau `JOIN … ON` SqlSense đề xuất điều kiện lấy từ foreign key giữa các bảng, xếp đầu danh sách.
+
+Tiếp theo là điều kiện theo **cột cùng tên** ở hai bảng, kể cả khi không có foreign key:
+
+* Cột có dạng khoá (tên kết thúc bằng `ID`, `Code`, `Key`, `No`, `Num`, `Number`) đứng trước; nếu có từ hai cột như vậy
+  thì có thêm một gợi ý ghép bằng `AND` (ví dụ `b.CustomerID = a.CustomerID AND b.RegionCode = a.RegionCode`).
+* Dùng được cả với CTE, bảng tạm, biến bảng, derived table và khi chưa tải được metadata.
+* Bỏ qua cột khác kiểu dữ liệu, và cột identity ở cả hai bảng (hai khoá tự tăng không liên quan).
+* Tắt ở Tools › Options › SqlSense › Suggestions › *Suggest JOIN on same-named columns*.
 
 ### 2.3 Mở rộng `SELECT *` thành danh sách cột
 
@@ -336,8 +344,8 @@ Yêu cầu: Visual Studio 2022/2026 với workload **Visual Studio extension dev
 (để sinh tài liệu Word từ `deploy\HUONG-DAN-SU-DUNG.md`; lần đầu script tự chạy `npm ci` trong `deploy\tools`).
 
 ```powershell
-.\deploy\Build-Package.ps1 -Version 1.2.0           # test + rebuild + đóng gói
-.\deploy\Build-Package.ps1 -Version 1.2.0 -Install  # ... và cài luôn vào SSMS trên máy này
+.\deploy\Build-Package.ps1 -Version 1.3.0           # test + rebuild + đóng gói
+.\deploy\Build-Package.ps1 -Version 1.3.0 -Install  # ... và cài luôn vào SSMS trên máy này
 .\deploy\Build-Package.ps1 -SkipTests               # giữ nguyên phiên bản, bỏ qua unit test
 ```
 

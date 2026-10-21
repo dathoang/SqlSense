@@ -137,6 +137,7 @@ namespace SqlSense.Settings
                     ExecGeneratesParameters = Get(Suggestions + "execGeneratesParameters", true),
                     AlterScriptsDefinition = Get(Suggestions + "alterScriptsDefinition", true),
                     SuggestJoinConditions = Get(Suggestions + "suggestJoinConditions", true),
+                    SuggestSameNameJoins = Get(Suggestions + "suggestSameNameJoins", true),
                     UppercaseKeywords = Get(Suggestions + "uppercaseKeywords", true),
                 },
                 Format = ReadFormatOptions(),
