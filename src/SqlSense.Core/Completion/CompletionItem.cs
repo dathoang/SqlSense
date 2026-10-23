@@ -24,6 +24,12 @@ namespace SqlSense.Core.Completion
         DataType,
         LocalTable,
         Trigger,
+        User,
+        Role,
+        Login,
+        File,
+        Index,
+        Server,
     }
 
     /// <summary>

@@ -47,8 +47,21 @@ namespace SqlSense.Commands
             }), SqlViewVisible);
             Add(commands, PackageIds.RefreshSuggestions, (s, e) =>
             {
-                SchemaService.Clear();
-                EditorActions.Status("SqlSense: suggestions will reload database metadata.");
+                // The window's database (or the one a USE before the caret names), reloaded now behind the old snapshot.
+                var view = ActiveSqlView();
+                string useDatabase = null;
+                if (view != null)
+                    useDatabase = SqlDocument.DatabaseFromUse(view.TextSnapshot.GetText(), view.Caret.Position.BufferPosition.Position);
+                var conn = SsmsConnection.GetActive();
+                if (!SchemaService.Refresh(conn, useDatabase))
+                    EditorActions.Status(conn?.Unsupported != null
+                        ? "SqlSense: no metadata for this connection (" + conn.Unsupported + ")."
+                        : "SqlSense: open a query window connected to a database first.");
+            });
+            Add(commands, PackageIds.RefreshAllSuggestions, (s, e) =>
+            {
+                SchemaService.RefreshAll();
+                EditorActions.Status("SqlSense: all cached metadata reloads on next use (suggestions keep working meanwhile).");
             });
             Add(commands, PackageIds.ToggleEnabled, (s, e) =>
             {
@@ -237,7 +250,7 @@ namespace SqlSense.Commands
             action(view);
         }
 
-        private static IWpfTextView ActiveSqlView()
+        internal static IWpfTextView ActiveSqlView()
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             var view = ActiveTextView();

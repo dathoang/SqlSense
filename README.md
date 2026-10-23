@@ -17,10 +17,19 @@ binaries are used. The parser is Microsoft's open-source `Microsoft.SqlServer.Tr
   columns + functions + variables + keywords in expressions, data types after `DECLARE @x` and `CAST(… AS`,
   databases after `USE`, `@variables` declared in the batch.
 - Dotted names: `alias.` → that table's columns, `schema.` → objects in the schema, `db.` → schemas.
+- Three- and four-part names: `FROM`/`EXEC` also list databases and linked servers; `OtherDb.` → its schemas,
+  `OtherDb.schema.` (or `OtherDb..`) → its objects, `LinkedServer.` → its databases, `LinkedServer.db.schema.` → its
+  tables; aliases of such tables get their columns, and hover works on every part. Another database's or a linked
+  server's metadata loads in the background the first time it's named; the list reopens when it arrives.
 - Knows CTEs, temp tables (`CREATE TABLE #t`, `SELECT … INTO #t`), table variables, derived tables, and `UPDATE a … FROM t a`.
 - Fuzzy matching: `soh` finds `SalesOrderHeader`; prefix matches rank first.
 - Metadata loads in the background per server/database/login and is cached (30 min by default); `USE db` switches the
-  database used for suggestions.
+  database used for suggestions. The status bar shows an animated "loading metadata for SERVER/Db…" while a first load
+  runs, then the object count and time, or the error (option: General › Show metadata loading in the status bar).
+- Refresh: Refresh Suggestions (Ctrl+Shift+D) reloads the window's database right away while suggestions keep the old
+  metadata; Refresh All Suggestions marks every cached database for reload. Executing a script that creates, alters or
+  drops objects (or `SELECT … INTO`, `sp_rename`) reloads the affected databases automatically (option: General ›
+  Refresh metadata after running CREATE/ALTER/DROP).
 
 **Autocomplete**
 - Table aliases: picking `Customers` in `FROM` inserts `dbo.Customers AS c` (configurable, no collisions).
@@ -31,6 +40,18 @@ binaries are used. The parser is Microsoft's open-source `Microsoft.SqlServer.Tr
 - `ALTER PROCEDURE` / `FUNCTION` / `VIEW` / `TRIGGER` lists objects of that kind (also after `DROP … [IF EXISTS]` and
   `CREATE OR ALTER`); in an empty batch, picking one after `ALTER` loads its definition in the background and replaces
   the statement with it (CREATE → ALTER). `CREATE TRIGGER t ON ` lists tables and views.
+- Security statements list what exists: `ALTER|DROP ROLE|USER|LOGIN|SCHEMA|DATABASE`, `ALTER [SERVER] ROLE … ADD MEMBER`,
+  `GRANT … ON` (securables), `GRANT|DENY … TO` / `REVOKE … FROM` (users and roles, or logins for server permissions),
+  `SCHEMA::` / `ROLE::` / `OBJECT::`, `FOR LOGIN`, `DEFAULT_SCHEMA =`, `AUTHORIZATION`.
+- Maintenance statements: `BACKUP|RESTORE DATABASE|LOG` (databases, `TO DISK = N'<db>_<date>.bak'`, recent backup files
+  from msdb after `RESTORE … FROM`, `WITH` options), `DBCC` commands and their arguments (databases, tables, files),
+  `ALTER DATABASE … SET` options and `MODIFY FILE`, `ALTER|DROP INDEX` (indexes with their table, `REBUILD`/`REORGANIZE`),
+  `CREATE INDEX … ON t (` columns, `UPDATE STATISTICS`. Snippets `bakd`, `bakl`, `rsdb`, `chkdb`.
+
+**Hover info**
+- Resting the mouse on a name shows what it is: tables and views (columns, types, foreign keys), columns, procedure and
+  function parameters, triggers, CTEs and temp tables, variables, built-in functions, schemas, users, roles (members),
+  logins, indexes and databases (state, recovery model, files, last backups). Option: General › Show object info on hover.
 - Tab after `*` (or `alias.*`) expands to the column list; Ctrl+B, Ctrl+W does the same from anywhere on the line.
 - Auto-closes `(` `[` `'` and types over the closer.
 - Snippets: `ssf`, `st100`, `scf`, `ii`, `uu`, `df`, `ij`, `lj`, `bt`, `tc`, `cte`, `cur`, `cp`, `cv`, `ct`, `tt`, … then Tab.
@@ -52,7 +73,7 @@ binaries are used. The parser is Microsoft's open-source `Microsoft.SqlServer.Tr
   `Documents\SqlSense\ConnectionColors.txt` (`server[/database] = color`, wildcards). The tab's right-click menu
   › Connection Color sets a rule for the window's database or server.
 
-**Menu:** Tools › SqlSense (Format SQL, Expand Wildcard, Refresh Suggestions, Enable/Disable, Show Log,
+**Menu:** Tools › SqlSense (Format SQL, Expand Wildcard, Refresh Suggestions, Refresh All Suggestions, Enable/Disable, Show Log,
 Import SQL Prompt Style, Edit Connection Colors).
 **Options:** Tools › Options › SqlSense (General, Suggestions, Formatting, Connection Colors).
 
@@ -61,7 +82,7 @@ User guide (Vietnamese), from install to the main use cases: [deploy/HUONG-DAN-S
 ## Install
 
 Download `SqlSense-<version>.zip` from the [latest release](https://github.com/dathoang/SqlSense/releases/latest)
-(currently [1.3.0](https://github.com/dathoang/SqlSense/releases/tag/v1.3.0)) or build it (below), unzip it,
+(currently [1.4.0](https://github.com/dathoang/SqlSense/releases/tag/v1.4.0)) or build it (below), unzip it,
 close SSMS 22 and double-click `Install.cmd`. It finds every
 SSMS 22 instance with vswhere and runs SSMS's own `VSIXInstaller.exe` (per user, no admin rights). Double-clicking
 the `.vsix` itself may install into Visual Studio instead. `Uninstall.cmd` removes it.
@@ -78,8 +99,8 @@ Requires Visual Studio 2026 (or 2022) with the *Visual Studio extension developm
 Node.js 22+ (renders the user guide to .docx via `deploy\tools`; `npm ci` runs there on first use).
 
 ```powershell
-.\deploy\Build-Package.ps1 -Version 1.3.0           # tests, Rebuild Release, zip + separate .vsix and .docx in dist\
-.\deploy\Build-Package.ps1 -Version 1.3.0 -Install  # ... and install into this machine's SSMS 22
+.\deploy\Build-Package.ps1 -Version 1.4.0           # tests, Rebuild Release, zip + separate .vsix and .docx in dist\
+.\deploy\Build-Package.ps1 -Version 1.4.0 -Install  # ... and install into this machine's SSMS 22
 ```
 
 Raise the version for every release: VSIXInstaller won't install the same version over itself. By hand:

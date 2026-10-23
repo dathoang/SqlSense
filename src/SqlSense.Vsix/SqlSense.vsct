@@ -98,6 +98,13 @@
           <CanonicalName>SqlSense.RefreshSuggestions</CanonicalName>
         </Strings>
       </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidRefreshAllSuggestions" priority="0x0102" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseMenuGroup" />
+        <Strings>
+          <ButtonText>Refresh All Suggestions</ButtonText>
+          <CanonicalName>SqlSense.RefreshAllSuggestions</CanonicalName>
+        </Strings>
+      </Button>
       <Button guid="guidSqlSenseCmdSet" id="cmdidToggleEnabled" priority="0x0103" type="Button">
         <Parent guid="guidSqlSenseCmdSet" id="SqlSenseMenuGroup" />
         <CommandFlag>TextChanges</CommandFlag>
@@ -592,6 +599,7 @@
   <KeyBindings>
     <KeyBinding guid="guidSqlSenseCmdSet" id="cmdidFormatSql" editor="guidVSStd97" key1="K" mod1="Control" key2="Y" mod2="Control" />
     <KeyBinding guid="guidSqlSenseCmdSet" id="cmdidExpandWildcards" editor="guidVSStd97" key1="B" mod1="Control" key2="W" mod2="Control" />
+    <KeyBinding guid="guidSqlSenseCmdSet" id="cmdidRefreshSuggestions" editor="guidVSStd97" key1="D" mod1="Control Shift" />
   </KeyBindings>
 
   <Symbols>
@@ -608,6 +616,7 @@
       <IDSymbol name="cmdidScriptResultsAsInsert" value="0x0106" />
       <IDSymbol name="cmdidImportSqlPromptStyle" value="0x0107" />
       <IDSymbol name="cmdidEditConnectionColors" value="0x0108" />
+      <IDSymbol name="cmdidRefreshAllSuggestions" value="0x0109" />
       <IDSymbol name="cmdidTabEditConnectionColors" value="0x010D" />
       <IDSymbol name="cmdidTabDbColor0" value="0x0200" />
       <IDSymbol name="cmdidTabDbColor1" value="0x0201" />

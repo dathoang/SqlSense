@@ -7,6 +7,7 @@ using Microsoft.VisualStudio.Shell.Interop;
 using SqlSense.Commands;
 using SqlSense.Connections;
 using SqlSense.Diagnostics;
+using SqlSense.Schema;
 using SqlSense.Settings;
 using Task = System.Threading.Tasks.Task;
 
@@ -37,6 +38,7 @@ namespace SqlSense
             var priorityTargets = await GetServiceAsync(typeof(SVsRegisterPriorityCommandTarget)) as IVsRegisterPriorityCommandTarget;
             await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
             ConnectionColors = ConnectionColorService.Create(shell);
+            _ddlRefresher = DdlRefresher.Create(await GetServiceAsync(typeof(EnvDTE.DTE)) as EnvDTE.DTE, SqlSenseCommands.ActiveSqlView);
             _setTabColorBlocker = SetTabColorBlocker.Register(priorityTargets);
             Log.Info($"SqlSense {typeof(SqlSensePackage).Assembly.GetName().Version} loaded. Enabled: {SqlSenseSettings.Current.Enabled}.");
         }
@@ -48,6 +50,7 @@ namespace SqlSense
         internal ConnectionColorService ConnectionColors { get; private set; }
 
         private SetTabColorBlocker _setTabColorBlocker;
+        private DdlRefresher _ddlRefresher;
 
         protected override void Dispose(bool disposing)
         {

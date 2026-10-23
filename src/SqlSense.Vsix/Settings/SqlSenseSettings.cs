@@ -16,6 +16,9 @@ namespace SqlSense.Settings
         public bool TabExpandsSnippets { get; set; } = true;
         public bool TabExpandsWildcard { get; set; } = true;
         public bool HighlightInsertPairs { get; set; } = true;
+        public bool QuickInfo { get; set; } = true;
+        public bool ShowLoadStatus { get; set; } = true;
+        public bool RefreshAfterDdl { get; set; } = true;
         public bool IncludeSystemObjects { get; set; } = true;
         public int SchemaCacheMinutes { get; set; } = 30;
         public string SnippetsFolder { get; set; } = DefaultSnippetsFolder;

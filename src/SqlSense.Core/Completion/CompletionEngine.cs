@@ -18,6 +18,9 @@ namespace SqlSense.Core.Completion
 
         public CompletionContext Context { get; }
         public List<CompletionItem> Items { get; }
+
+        /// <summary>The name refers to another database or linked server whose metadata is still loading.</summary>
+        public bool SchemaPending { get; set; }
     }
 
     /// <summary>Builds the suggestion list for a caret position.</summary>
@@ -35,14 +38,20 @@ namespace SqlSense.Core.Completion
         public SnippetLibrary Snippets { get; set; }
         public string NewLine { get; set; } = "\r\n";
 
+        /// <summary>Clock for generated backup file names.</summary>
+        public Func<DateTime> Now { get; set; } = () => DateTime.Now;
+
         /// <summary>
         /// When false, every candidate is returned in priority order and the caller filters as the
         /// user types (the editor's completion list does this).
         /// </summary>
         public bool FilterByPrefix { get; set; } = true;
 
+        private bool _schemaPending;
+
         public CompletionResult GetCompletions(string text, int caret, DatabaseSchema schema)
         {
+            _schemaPending = false;
             var ctx = ContextAnalyzer.Analyze(text, caret, schema);
             var items = new List<CompletionItem>();
             if (ctx.Kind == ContextKind.None || ctx.Kind == ContextKind.AliasName)
@@ -57,6 +66,9 @@ namespace SqlSense.Core.Completion
                         AddSnippets(items, ctx);
                         AddKeywords(items, 0);
                         break;
+                    case ContextKind.TableSource when ctx.NameAsString:
+                        AddTableNamesAsStrings(schema, items);
+                        break;
                     case ContextKind.TableSource:
                         AddTableSources(ctx, schema, items);
                         if (ctx.ClauseKeyword == "INSERT") items.Add(Keyword("INTO", -1));
@@ -64,10 +76,28 @@ namespace SqlSense.Core.Completion
                     case ContextKind.Procedure:
                         AddObjects(ctx, schema, items, o => o.Kind == DbObjectKind.Procedure, null);
                         AddSchemas(schema, items);
+                        AddDatabasesAndServers(schema, items);
                         break;
                     case ContextKind.ObjectName:
                         AddObjects(ctx, schema, items, ModuleFilter(ctx.ClauseKeyword), null);
                         AddSchemas(schema, items);
+                        break;
+                    case ContextKind.Principal:
+                        AddPrincipals(ctx, schema, items);
+                        break;
+                    case ContextKind.Schema:
+                        AddSchemas(schema, items);
+                        break;
+                    case ContextKind.Options:
+                        AddOptions(ctx, schema, items);
+                        break;
+                    case ContextKind.DatabaseFile:
+                        if (schema != null)
+                            foreach (var f in schema.Files)
+                                items.Add(new CompletionItem(f.Name, "N'" + f.Name.Replace("'", "''") + "'", CompletionItemKind.File, f.Describe()));
+                        break;
+                    case ContextKind.Index:
+                        AddIndexes(ctx, schema, items);
                         break;
                     case ContextKind.Expression:
                         AddExpression(ctx, schema, items);
@@ -82,8 +112,11 @@ namespace SqlSense.Core.Completion
                     case ContextKind.Database:
                         if (schema != null)
                         {
-                            foreach (var db in new[] { schema.DatabaseName }.Concat(schema.OtherDatabases).Distinct(Ci))
-                                items.Add(new CompletionItem(db, Quote(db), CompletionItemKind.Database, "database"));
+                            // RESTORE also targets databases that are not online (RESTORING after NORECOVERY).
+                            var names = new[] { schema.DatabaseName }.Concat(schema.OtherDatabases);
+                            if (ctx.ClauseKeyword == "RESTORE") names = names.Concat(schema.Databases.Select(d => d.Name));
+                            foreach (var db in names.Distinct(Ci))
+                                items.Add(new CompletionItem(db, Quote(db), CompletionItemKind.Database, DescribeDatabase(schema, db)));
                         }
                         break;
                     case ContextKind.Variable:
@@ -94,7 +127,7 @@ namespace SqlSense.Core.Completion
                 }
             }
 
-            return new CompletionResult(ctx, Rank(items, FilterByPrefix ? ctx.Prefix : string.Empty));
+            return new CompletionResult(ctx, Rank(items, FilterByPrefix ? ctx.Prefix : string.Empty)) { SchemaPending = _schemaPending };
         }
 
         /// <summary>Filters by the typed prefix and orders by match quality, then priority, then name.</summary>
@@ -125,6 +158,7 @@ namespace SqlSense.Core.Completion
                 : new[] { DbObjectKind.Table, DbObjectKind.View, DbObjectKind.TableFunction, DbObjectKind.Synonym };
             AddObjects(ctx, schema, items, o => kinds.Contains(o.Kind), null);
             AddSchemas(schema, items);
+            AddDatabasesAndServers(schema, items);
         }
 
         private void AddObjects(CompletionContext ctx, DatabaseSchema schema, List<CompletionItem> items,
@@ -180,6 +214,7 @@ namespace SqlSense.Core.Completion
                 case "FUNCTION": return o => o.Kind == DbObjectKind.ScalarFunction || o.Kind == DbObjectKind.TableFunction;
                 case "VIEW": return o => o.Kind == DbObjectKind.View;
                 case "TRIGGER": return o => o.Kind == DbObjectKind.Trigger;
+                case "OBJECT": return o => o.Kind != DbObjectKind.Trigger;
                 default: return o => false;
             }
         }
@@ -206,6 +241,15 @@ namespace SqlSense.Core.Completion
                 case DbObjectKind.TableFunction:
                     kind = CompletionItemKind.TableFunction;
                     description = DescribeRoutine(o);
+                    break;
+                case DbObjectKind.Table:
+                case DbObjectKind.TableType:
+                    kind = CompletionItemKind.Table;
+                    description = (o.Kind == DbObjectKind.Table ? "table" : "table type") + DescribeColumns(o);
+                    break;
+                case DbObjectKind.Synonym:
+                    kind = CompletionItemKind.Synonym;
+                    description = "synonym";
                     break;
                 default:
                     kind = CompletionItemKind.Procedure;
@@ -313,6 +357,16 @@ namespace SqlSense.Core.Completion
         {
             var target = ctx.InsertTarget;
             if (target == null) return;
+            if (ctx.ClauseKeyword == "INDEX")
+            {
+                // CREATE INDEX … ON t (…) / INCLUDE (…): every column, in table order.
+                if (target.Object != null)
+                    foreach (var c in target.Object.Columns)
+                        items.Add(new CompletionItem(c.Name, Quote(c.Name), CompletionItemKind.Column, c.Describe()) { Priority = c.Ordinal });
+                else
+                    foreach (var c in target.ColumnNames) items.Add(new CompletionItem(c, Quote(c), CompletionItemKind.Column, target.Name));
+                return;
+            }
             var cols = target.Object != null
                 ? target.Object.Columns.Where(c => !c.IsIdentity && !c.IsComputed).Select(c => c.Name).ToList()
                 : target.ColumnNames.ToList();
@@ -343,31 +397,11 @@ namespace SqlSense.Core.Completion
                 }
                 if (schema != null && schema.IsSchema(q[0]))
                 {
-                    Func<DbObject, bool> filter;
-                    switch (baseKind)
-                    {
-                        case ContextKind.TableSource:
-                            filter = o => o.Kind != DbObjectKind.Procedure && o.Kind != DbObjectKind.ScalarFunction
-                                          && o.Kind != DbObjectKind.TableType && o.Kind != DbObjectKind.Trigger;
-                            break;
-                        case ContextKind.Procedure:
-                            filter = o => o.Kind == DbObjectKind.Procedure;
-                            break;
-                        case ContextKind.ObjectName:
-                            filter = ModuleFilter(ctx.ClauseKeyword);
-                            break;
-                        default:
-                            filter = o => o.Kind == DbObjectKind.ScalarFunction || o.Kind == DbObjectKind.TableFunction;
-                            break;
-                    }
-                    AddObjects(ctx, schema, items, filter, q[0]);
+                    AddObjects(ctx, schema, items, MemberFilter(ctx), q[0]);
                     return;
                 }
-                if (schema != null && Ci.Equals(q[0], schema.DatabaseName))
-                {
-                    AddSchemas(schema, items, withDot: true);
-                    return;
-                }
+                // database.<schema>, linked server.<database>
+                if (AddSchemasOf(schema, null, q[0], items) || AddDatabasesOf(schema, q[0], items)) return;
                 // Unknown alias of a local table name that wasn't resolved: fall back to temp tables.
                 var local = ctx.LocalTables.LastOrDefault(l => Ci.Equals(l.Name, q[0]));
                 if (local != null)
@@ -378,27 +412,99 @@ namespace SqlSense.Core.Completion
             if (schema == null) return;
             if (q.Count == 2)
             {
-                // schema.object.<column>
-                var obj = schema.Find(q[0], q[1]);
-                if (obj != null)
-                {
-                    foreach (var c in obj.Columns) items.Add(new CompletionItem(c.Name, Quote(c.Name), CompletionItemKind.Column, c.Describe()) { Priority = c.Ordinal });
-                    return;
-                }
-                // db.schema.<object>
-                if (Ci.Equals(q[0], schema.DatabaseName) && schema.IsSchema(q[1]))
-                    AddObjects(ctx, schema, items,
-                        baseKind == ContextKind.Procedure ? o => o.Kind == DbObjectKind.Procedure
-                        : baseKind == ContextKind.ObjectName ? ModuleFilter(ctx.ClauseKeyword)
-                        : (Func<DbObject, bool>)(o => o.Kind != DbObjectKind.Procedure && o.Kind != DbObjectKind.Trigger), q[1]);
+                // schema.object.<column>, database.schema.<object> (database..<object> = its default schema), server.database.<schema>
+                if (!string.IsNullOrEmpty(q[0]) && !string.IsNullOrEmpty(q[1]) && AddColumnsOf(schema, null, null, q[0], q[1], items)) return;
+                if (AddObjectsOf(ctx, schema, null, q[0], q[1], items)) return;
+                AddSchemasOf(schema, q[0], q[1], items);
                 return;
             }
-            if (q.Count == 3 && Ci.Equals(q[0], schema.DatabaseName))
+            if (q.Count == 3)
             {
-                var obj = schema.Find(q[1], q[2]);
-                if (obj != null)
-                    foreach (var c in obj.Columns) items.Add(new CompletionItem(c.Name, Quote(c.Name), CompletionItemKind.Column, c.Describe()));
+                // database.schema.object.<column>, server.database.schema.<object>
+                if (AddColumnsOf(schema, null, q[0], q[1], q[2], items)) return;
+                AddObjectsOf(ctx, schema, q[0], q[1], q[2], items);
+                return;
             }
+            if (q.Count == 4) AddColumnsOf(schema, q[0], q[1], q[2], q[3], items);
+        }
+
+        /// <summary>Objects that fit after "schema." in this context.</summary>
+        private static Func<DbObject, bool> MemberFilter(CompletionContext ctx)
+        {
+            switch (ctx.Kind)
+            {
+                case ContextKind.TableSource:
+                    return o => o.Kind != DbObjectKind.Procedure && o.Kind != DbObjectKind.ScalarFunction
+                                && o.Kind != DbObjectKind.TableType && o.Kind != DbObjectKind.Trigger;
+                case ContextKind.Procedure:
+                    return o => o.Kind == DbObjectKind.Procedure;
+                case ContextKind.ObjectName:
+                    return ModuleFilter(ctx.ClauseKeyword);
+                default:
+                    return o => o.Kind == DbObjectKind.ScalarFunction || o.Kind == DbObjectKind.TableFunction;
+            }
+        }
+
+        /// <summary>
+        /// Snapshot of [server.]database, or null. A known database that is still loading sets
+        /// <see cref="CompletionResult.SchemaPending"/> so the host can reopen the list.
+        /// </summary>
+        private DatabaseSchema Lookup(DatabaseSchema schema, string server, string database, out bool known)
+        {
+            known = false;
+            if (schema == null) return null;
+            var target = schema.For(server, database, out var pending);
+            if (pending) _schemaPending = true;
+            known = target != null || pending;
+            return target;
+        }
+
+        private bool AddSchemasOf(DatabaseSchema schema, string server, string database, List<CompletionItem> items)
+        {
+            if (string.IsNullOrEmpty(database)) return false;
+            var target = Lookup(schema, server, database, out var known);
+            if (target != null) AddSchemas(target, items);
+            return known;
+        }
+
+        private bool AddDatabasesOf(DatabaseSchema schema, string server, List<CompletionItem> items)
+        {
+            if (schema == null || !schema.IsLinkedServer(server)) return false;
+            var catalog = Lookup(schema, server, null, out _);
+            if (catalog != null)
+                foreach (var db in catalog.OtherDatabases)
+                    items.Add(new CompletionItem(db, Quote(db), CompletionItemKind.Database, "database on " + server));
+            return true;
+        }
+
+        private bool AddObjectsOf(CompletionContext ctx, DatabaseSchema schema, string server, string database, string schemaName, List<CompletionItem> items)
+        {
+            if (string.IsNullOrEmpty(database) || server == null && schema.IsSchema(database) && !schema.IsDatabase(database)) return false;
+            var target = Lookup(schema, server, database, out var known);
+            if (target == null) return known;
+            if (string.IsNullOrEmpty(schemaName)) schemaName = target.DefaultSchema;
+            if (!target.IsSchema(schemaName)) return false;
+            AddObjects(ctx, target, items, MemberFilter(ctx), schemaName);
+            return true;
+        }
+
+        private bool AddColumnsOf(DatabaseSchema schema, string server, string database, string schemaName, string name, List<CompletionItem> items)
+        {
+            var target = database == null ? schema : Lookup(schema, server, database, out _);
+            var obj = target?.Find(string.IsNullOrEmpty(schemaName) ? null : schemaName, name);
+            if (obj == null) return false;
+            foreach (var c in obj.Columns) items.Add(new CompletionItem(c.Name, Quote(c.Name), CompletionItemKind.Column, c.Describe()) { Priority = c.Ordinal });
+            return true;
+        }
+
+        /// <summary>FROM | / EXEC |: databases and linked servers, for three- and four-part names.</summary>
+        private static void AddDatabasesAndServers(DatabaseSchema schema, List<CompletionItem> items)
+        {
+            if (schema == null) return;
+            foreach (var db in new[] { schema.DatabaseName }.Concat(schema.OtherDatabases).Distinct(Ci))
+                items.Add(new CompletionItem(db, Quote(db), CompletionItemKind.Database, DescribeDatabase(schema, db)) { Priority = 25 });
+            foreach (var server in schema.LinkedServers)
+                items.Add(new CompletionItem(server, Quote(server), CompletionItemKind.Server, "linked server") { Priority = 26 });
         }
 
         // ---------------- building blocks ----------------
@@ -428,6 +534,138 @@ namespace SqlSense.Core.Completion
         {
             foreach (var v in ctx.Variables)
                 items.Add(new CompletionItem(v.Name, v.Name, CompletionItemKind.Variable, v.DataType ?? "variable") { Priority = priority });
+        }
+
+        // ---------------- maintenance statements ----------------
+
+        private void AddOptions(CompletionContext ctx, DatabaseSchema schema, List<CompletionItem> items)
+        {
+            if (ctx.OptionList == "BACKUP TO") AddBackupFile(ctx, schema, items);
+            if (ctx.OptionList == "RESTORE FROM") AddRecentBackups(ctx, schema, items);
+            if (!StatementOptions.Lists.TryGetValue(ctx.OptionList ?? "", out var list)) return;
+            var priority = 0;
+            foreach (var o in list)
+            {
+                var text = KwOutsideQuotes(o.Text);
+                var caret = text.IndexOf('|');
+                text = text.Replace("|", string.Empty);
+                items.Add(new CompletionItem(text, text, CompletionItemKind.Keyword, o.Description) { Priority = priority++, CaretOffset = caret });
+            }
+        }
+
+        /// <summary>BACKUP … TO: a dated file name for the database, in the server's default backup folder.</summary>
+        private void AddBackupFile(CompletionContext ctx, DatabaseSchema schema, List<CompletionItem> items)
+        {
+            var db = ctx.TargetDatabase ?? schema?.DatabaseName;
+            if (string.IsNullOrEmpty(db)) return;
+            var invalid = System.IO.Path.GetInvalidFileNameChars();
+            var safe = new string(db.Select(c => invalid.Contains(c) ? '_' : c).ToArray());
+            var file = $"{safe}_{(ctx.TargetIsLog ? "log_" : "")}{Now():yyyyMMdd_HHmm}.{(ctx.TargetIsLog ? "trn" : "bak")}";
+            var text = Kw("DISK") + " = N'" + file.Replace("'", "''") + "'";
+            items.Add(new CompletionItem(text, text, CompletionItemKind.Snippet,
+                (ctx.TargetIsLog ? "log" : "full") + " backup file in the server's default backup folder") { Priority = -1 });
+        }
+
+        /// <summary>RESTORE … FROM: the newest backup files of the database from msdb's history.</summary>
+        private void AddRecentBackups(CompletionContext ctx, DatabaseSchema schema, List<CompletionItem> items)
+        {
+            if (schema == null) return;
+            var types = ctx.TargetDatabase == null ? "DIL" : ctx.TargetIsLog ? "L" : "DI";
+            var priority = -100;
+            var seen = new HashSet<string>(Ci);
+            foreach (var b in schema.Backups)
+            {
+                if (ctx.TargetDatabase != null && !Ci.Equals(b.Database, ctx.TargetDatabase)) continue;
+                if (types.IndexOf(b.Type) < 0 || string.IsNullOrEmpty(b.Device) || b.Device.StartsWith("{", StringComparison.Ordinal)) continue;
+                if (!seen.Add(b.Device)) continue;
+                var url = b.Device.StartsWith("http", StringComparison.OrdinalIgnoreCase) || b.Device.StartsWith("s3:", StringComparison.OrdinalIgnoreCase);
+                var text = Kw(url ? "URL" : "DISK") + " = N'" + b.Device.Replace("'", "''") + "'";
+                items.Add(new CompletionItem(text, text, CompletionItemKind.Snippet,
+                    $"{b.TypeText} backup of {b.Database}, {b.Finished:yyyy-MM-dd HH:mm}") { Priority = priority++ });
+                if (seen.Count >= 10) break;
+            }
+        }
+
+        private static void AddTableNamesAsStrings(DatabaseSchema schema, List<CompletionItem> items)
+        {
+            if (schema == null) return;
+            foreach (var o in schema.Objects.Where(o => o.Kind == DbObjectKind.Table || o.Kind == DbObjectKind.View))
+            {
+                var kind = o.Kind == DbObjectKind.View ? CompletionItemKind.View : CompletionItemKind.Table;
+                items.Add(new CompletionItem(o.QualifiedName, "'" + (Quote(o.Schema) + "." + Quote(o.Name)).Replace("'", "''") + "'", kind,
+                    o.Kind.ToString().ToLowerInvariant() + DescribeColumns(o)) { Priority = Ci.Equals(o.Schema, schema.DefaultSchema) ? 10 : 11 });
+            }
+        }
+
+        /// <summary>ALTER|DROP INDEX: each index inserts "name ON table"; ALTER also offers ALL.</summary>
+        private void AddIndexes(CompletionContext ctx, DatabaseSchema schema, List<CompletionItem> items)
+        {
+            if (ctx.AllowsAllIndexes)
+                items.Add(new CompletionItem(Kw("ALL"), Kw("ALL") + " " + Kw("ON") + " ", CompletionItemKind.Keyword, "every index of a table") { Priority = -1 });
+            if (schema == null) return;
+            foreach (var o in schema.Objects)
+                foreach (var ix in o.Indexes)
+                {
+                    var table = Options.AlwaysQualifySchema || !Ci.Equals(o.Schema, schema.DefaultSchema) ? Quote(o.Schema) + "." + Quote(o.Name) : Quote(o.Name);
+                    items.Add(new CompletionItem(ix.Name, Quote(ix.Name) + " " + Kw("ON") + " " + table, CompletionItemKind.Index,
+                        ix.Describe() + " on " + o.QualifiedName) { Priority = ix.IsPrimaryKey ? 11 : 10 });
+                }
+        }
+
+        private static string DescribeDatabase(DatabaseSchema schema, string name)
+        {
+            var d = schema.FindDatabase(name);
+            if (d == null) return Ci.Equals(name, schema.DatabaseName) ? "current database" : "database";
+            var state = Ci.Equals(d.State, "ONLINE") ? "" : d.State.ToLowerInvariant() + ", ";
+            return $"database, {state}{d.RecoveryModel.ToLowerInvariant()} recovery, level {d.CompatibilityLevel}";
+        }
+
+        /// <summary>Applies keyword case to everything outside '…' literals.</summary>
+        private string KwOutsideQuotes(string text)
+        {
+            var sb = new StringBuilder(text.Length);
+            var segment = new StringBuilder();
+            var inString = false;
+            foreach (var c in text)
+            {
+                if (c == '\'')
+                {
+                    if (!inString) { sb.Append(Kw(segment.ToString())); segment.Clear(); }
+                    inString = !inString;
+                    sb.Append(c);
+                }
+                else if (inString) sb.Append(c);
+                else segment.Append(c);
+            }
+            sb.Append(Kw(segment.ToString()));
+            return sb.ToString();
+        }
+
+        private static void AddPrincipals(CompletionContext ctx, DatabaseSchema schema, List<CompletionItem> items)
+        {
+            if (schema == null) return;
+            foreach (var p in schema.Principals)
+            {
+                if (!ctx.PrincipalKinds.Contains(p.Kind)) continue;
+                var kind = p.IsRole ? CompletionItemKind.Role : p.Kind == DbPrincipalKind.Login ? CompletionItemKind.Login : CompletionItemKind.User;
+                items.Add(new CompletionItem(p.Name, Quote(p.Name), kind, DescribePrincipal(p))
+                {
+                    // Own principals before built-in roles; users and logins before roles.
+                    Priority = (p.IsFixedRole ? 20 : 10) + (p.IsRole ? 1 : 0),
+                });
+            }
+        }
+
+        public static string DescribePrincipal(DbPrincipal p)
+        {
+            var sb = new StringBuilder(p.KindText);
+            if (!string.IsNullOrEmpty(p.TypeDescription) && !p.IsRole) sb.Append(" (").Append(p.TypeDescription).Append(')');
+            if (p.IsDisabled) sb.Append(", disabled");
+            if (p.IsRole && p.Members.Count > 0)
+                sb.Append(" — members: ").Append(string.Join(", ", p.Members.Take(8))).Append(p.Members.Count > 8 ? ", …" : "");
+            else if (!p.IsRole && p.MemberOf.Count > 0)
+                sb.Append(" — member of: ").Append(string.Join(", ", p.MemberOf.Take(8))).Append(p.MemberOf.Count > 8 ? ", …" : "");
+            return sb.ToString();
         }
 
         private static void AddSchemas(DatabaseSchema schema, List<CompletionItem> items, bool withDot = false)

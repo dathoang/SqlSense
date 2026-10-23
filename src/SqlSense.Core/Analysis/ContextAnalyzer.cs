@@ -25,8 +25,21 @@ namespace SqlSense.Core.Analysis
         Variable,
         /// <summary>Typing an alias right after AS: nothing useful to suggest.</summary>
         AliasName,
-        /// <summary>An existing module after ALTER/DROP PROCEDURE|FUNCTION|VIEW|TRIGGER (kind in ClauseKeyword).</summary>
+        /// <summary>
+        /// An existing module after ALTER/DROP PROCEDURE|FUNCTION|VIEW|TRIGGER (kind in ClauseKeyword), or any
+        /// securable after GRANT … ON / OBJECT:: (ClauseKeyword "OBJECT").
+        /// </summary>
         ObjectName,
+        /// <summary>A user, role or login (which ones in <see cref="CompletionContext.PrincipalKinds"/>).</summary>
+        Principal,
+        /// <summary>An existing schema (ALTER SCHEMA, SCHEMA::, DEFAULT_SCHEMA = …).</summary>
+        Schema,
+        /// <summary>A fixed list of statement options (which one in <see cref="CompletionContext.OptionList"/>).</summary>
+        Options,
+        /// <summary>A file of the current database (DBCC SHRINKFILE, MODIFY FILE (NAME = …)).</summary>
+        DatabaseFile,
+        /// <summary>An existing index after ALTER/DROP INDEX.</summary>
+        Index,
     }
 
     public sealed class CompletionContext
@@ -73,11 +86,29 @@ namespace SqlSense.Core.Analysis
         /// <summary>Line indentation at the caret, used for multi-line insertions.</summary>
         public string LineIndent { get; set; } = string.Empty;
 
+        /// <summary>For <see cref="ContextKind.Principal"/>: the kinds of principal that fit.</summary>
+        public List<DbPrincipalKind> PrincipalKinds { get; set; } = new List<DbPrincipalKind>();
+
+        /// <summary>For <see cref="ContextKind.Options"/>: the list's key ("BACKUP WITH", "DBCC", "DATABASE SET" …).</summary>
+        public string OptionList { get; set; }
+
+        /// <summary>BACKUP/RESTORE DATABASE|LOG x: the database named by the statement, if any.</summary>
+        public string TargetDatabase { get; set; }
+
+        /// <summary>BACKUP/RESTORE LOG rather than DATABASE.</summary>
+        public bool TargetIsLog { get; set; }
+
+        /// <summary>Table names go in as a string literal (DBCC CHECKTABLE ('dbo.T')).</summary>
+        public bool NameAsString { get; set; }
+
+        /// <summary>ALTER rather than DROP INDEX: ALL is an option.</summary>
+        public bool AllowsAllIndexes { get; set; }
+
         public bool HasQualifier => Qualifier.Count > 0;
     }
 
     /// <summary>Decides what kind of completion fits the caret position.</summary>
-    public static class ContextAnalyzer
+    public static partial class ContextAnalyzer
     {
         private static readonly HashSet<string> ContextKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -167,6 +198,8 @@ namespace SqlSense.Core.Analysis
             }
 
             ctx.Kind = Classify(sig, lastIdx, stmt.Start, ctx);
+            if (ctx.Kind == ContextKind.InsertColumns && ctx.ClauseKeyword == "INDEX" && ctx.InsertTarget != null)
+                Resolve(new List<TableRef> { ctx.InsertTarget }, ctx.Ctes, ctx.LocalTables, schema);
             if (ctx.ScriptVerb != null)
             {
                 // Only into an empty batch: re-picking the name of an ALTER that already has a body must not duplicate it.
@@ -217,6 +250,142 @@ namespace SqlSense.Core.Analysis
             return ContextKind.ObjectName;
         }
 
+        private static readonly DbPrincipalKind[] DatabasePrincipals =
+            { DbPrincipalKind.User, DbPrincipalKind.DatabaseRole, DbPrincipalKind.ApplicationRole };
+
+        private static readonly DbPrincipalKind[] ServerPrincipals = { DbPrincipalKind.Login, DbPrincipalKind.ServerRole };
+
+        /// <summary>
+        /// Security statements: ALTER|DROP ROLE|USER|LOGIN|SCHEMA|DATABASE, ALTER ROLE … ADD|DROP MEMBER,
+        /// CREATE USER … FOR LOGIN, GRANT|DENY|REVOKE … ON … TO|FROM, class::name, AUTHORIZATION,
+        /// DEFAULT_SCHEMA = … . Null when none applies.
+        /// </summary>
+        private static ContextKind? ClassifySecurity(List<SqlToken> sig, int p, int stmtStart, CompletionContext ctx)
+        {
+            var i = p;
+            var ifExists = i >= 2 && sig[i].Is("EXISTS") && sig[i - 1].Is("IF");
+            if (ifExists) i -= 2;
+            if (i < stmtStart) return null;
+            var t = sig[i];
+            var first = sig[stmtStart];
+            var isPermission = first.Is("GRANT") || first.Is("DENY") || first.Is("REVOKE");
+
+            // class::name
+            if (t.Text == "::" && i - 1 >= stmtStart && !ifExists)
+            {
+                var cls = sig[i - 1];
+                ctx.ClauseKeyword = cls.Upper;
+                if (cls.Is("OBJECT")) return ContextKind.ObjectName;
+                if (ctx.HasQualifier) return null;
+                if (cls.Is("SCHEMA")) return ContextKind.Schema;
+                if (cls.Is("DATABASE")) return ContextKind.Database;
+                if (cls.Is("USER")) return Principals(ctx, DbPrincipalKind.User);
+                if (cls.Is("LOGIN")) return Principals(ctx, DbPrincipalKind.Login);
+                if (cls.Is("ROLE"))
+                {
+                    if (i - 2 >= stmtStart && sig[i - 2].Is("SERVER")) return Principals(ctx, DbPrincipalKind.ServerRole);
+                    if (i - 2 >= stmtStart && sig[i - 2].Is("APPLICATION")) return Principals(ctx, DbPrincipalKind.ApplicationRole);
+                    return Principals(ctx, DbPrincipalKind.DatabaseRole);
+                }
+                return null;
+            }
+
+            // GRANT … ON |
+            if (isPermission && t.Is("ON") && !ifExists)
+            {
+                ctx.ClauseKeyword = "OBJECT";
+                return ContextKind.ObjectName;
+            }
+            if (ctx.HasQualifier) return null;
+
+            // ALTER|DROP ROLE|USER|LOGIN|SCHEMA|DATABASE |, CREATE … | (a new name), CREATE USER u FOR|FROM LOGIN |
+            if (t.Is("ROLE") || t.Is("USER") || t.Is("LOGIN") || t.Is("SCHEMA") || t.Is("DATABASE"))
+            {
+                var v = i - 1;
+                var kind = DbPrincipalKind.User;
+                if (t.Is("ROLE"))
+                {
+                    kind = DbPrincipalKind.DatabaseRole;
+                    if (v >= stmtStart && sig[v].Is("SERVER")) { kind = DbPrincipalKind.ServerRole; v--; }
+                    else if (v >= stmtStart && sig[v].Is("APPLICATION")) { kind = DbPrincipalKind.ApplicationRole; v--; }
+                }
+                else if (t.Is("LOGIN")) kind = DbPrincipalKind.Login;
+                if (v < stmtStart) return null;
+                var verb = sig[v];
+                if (verb.Is("CREATE"))
+                {
+                    if (ifExists) return null;
+                    ctx.ClauseKeyword = t.Upper;
+                    return ContextKind.AliasName;
+                }
+                var existing = verb.Is("DROP")
+                               || !ifExists && (verb.Is("ALTER") || t.Is("LOGIN") && (verb.Is("FOR") || verb.Is("FROM")));
+                if (!existing) return null;
+                ctx.ClauseKeyword = t.Upper;
+                if (t.Is("SCHEMA")) return ContextKind.Schema;
+                if (t.Is("DATABASE")) return ContextKind.Database;
+                return Principals(ctx, kind);
+            }
+            if (ifExists) return null;
+
+            // ALTER ROLE r ADD|DROP MEMBER |, ALTER SERVER ROLE r ADD|DROP MEMBER |
+            if (t.Is("MEMBER") && i - 1 >= stmtStart && (sig[i - 1].Is("ADD") || sig[i - 1].Is("DROP")) && first.Is("ALTER"))
+            {
+                ctx.ClauseKeyword = "MEMBER";
+                if (stmtStart + 2 < sig.Count && sig[stmtStart + 1].Is("SERVER") && sig[stmtStart + 2].Is("ROLE"))
+                    return Principals(ctx, ServerPrincipals);
+                if (stmtStart + 1 < sig.Count && sig[stmtStart + 1].Is("ROLE"))
+                    return Principals(ctx, DbPrincipalKind.User, DbPrincipalKind.DatabaseRole);
+                return null;
+            }
+
+            // WITH DEFAULT_SCHEMA = |, LOGIN = |, DEFAULT_DATABASE = |
+            if (t.Text == "=" && i - 1 >= stmtStart && (first.Is("ALTER") || first.Is("CREATE")))
+            {
+                var option = sig[i - 1];
+                if (option.Is("DEFAULT_SCHEMA")) return ContextKind.Schema;
+                if (option.Is("DEFAULT_DATABASE")) return ContextKind.Database;
+                if (option.Is("LOGIN")) return Principals(ctx, DbPrincipalKind.Login);
+                return null;
+            }
+
+            // CREATE SCHEMA|ROLE … AUTHORIZATION |
+            if (t.Is("AUTHORIZATION") && first.Is("CREATE"))
+            {
+                ctx.ClauseKeyword = "AUTHORIZATION";
+                return stmtStart + 1 < sig.Count && sig[stmtStart + 1].Is("SERVER")
+                    ? Principals(ctx, ServerPrincipals)
+                    : Principals(ctx, DatabasePrincipals);
+            }
+
+            // GRANT … TO |, REVOKE … FROM |, … TO a, |, ALTER AUTHORIZATION ON x TO |
+            var isAuthorization = first.Is("ALTER") && stmtStart + 1 < sig.Count && sig[stmtStart + 1].Is("AUTHORIZATION");
+            if (!isPermission && !isAuthorization) return null;
+            var grantee = -1;
+            if (t.Is("TO") || isPermission && (t.Is("FROM") || t.Is("AS"))) grantee = i;
+            else if (t.Text == ",")
+            {
+                for (var k = i - 1; k > stmtStart; k--)
+                {
+                    if (sig[k].Is("ON") || sig[k].Text == ")" || sig[k].Text == "(") break;
+                    if (sig[k].Is("TO") || sig[k].Is("FROM")) { grantee = k; break; }
+                }
+            }
+            if (grantee < 0) return null;
+            ctx.ClauseKeyword = sig[grantee].Upper;
+            // Server permissions (VIEW SERVER STATE, ALTER ANY LOGIN, ON LOGIN::…, ON ENDPOINT::…) go to logins.
+            for (var k = stmtStart + 1; k < grantee; k++)
+                if (sig[k].Is("SERVER") || sig[k].Is("LOGIN") || sig[k].Is("ENDPOINT"))
+                    return Principals(ctx, ServerPrincipals);
+            return Principals(ctx, DatabasePrincipals);
+        }
+
+        private static ContextKind Principals(CompletionContext ctx, params DbPrincipalKind[] kinds)
+        {
+            ctx.PrincipalKinds = kinds.ToList();
+            return ContextKind.Principal;
+        }
+
         private static string ModuleKeyword(SqlToken t)
         {
             if (t.Is("PROCEDURE") || t.Is("PROC")) return "PROCEDURE";
@@ -232,6 +401,10 @@ namespace SqlSense.Core.Analysis
             if (p < 0 || p < stmtStart && !ctx.HasQualifier) return ContextKind.Keyword;
             var prev = sig[p];
             if (prev.Text == ";") return ContextKind.Keyword;
+            var maintenance = ClassifyMaintenance(sig, p, stmtStart, ctx);
+            if (maintenance != null) return maintenance.Value;
+            var security = ClassifySecurity(sig, p, stmtStart, ctx);
+            if (security != null) return security.Value;
             var objectName = ClassifyObjectName(sig, p, ctx);
             if (objectName != null) return objectName.Value;
 
@@ -411,8 +584,8 @@ namespace SqlSense.Core.Analysis
                     r.LocalColumns = local.Columns;
                     continue;
                 }
-                if (schema != null && (r.Database == null || schema.IsDatabase(r.Database) && Eq(r.Database, schema.DatabaseName)))
-                    r.Object = schema.Find(r.Schema, r.Name);
+                // Another database or a linked server: its snapshot when loaded (Resolver never blocks).
+                r.Object = schema?.For(r.Server, r.Database)?.Find(r.Schema, r.Name);
             }
 
             // "UPDATE a SET … FROM dbo.T a": the UPDATE target is an alias of a FROM source.

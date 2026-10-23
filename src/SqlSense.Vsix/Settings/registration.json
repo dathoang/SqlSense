@@ -19,6 +19,24 @@
       "description": "Switches off Languages › SQL › IntelliSense › Enable IntelliSense so its list doesn't compete with SqlSense's. It is switched back on when SqlSense is disabled or this option is cleared (only if SqlSense turned it off). Open query windows may need reopening.",
       "default": true
     },
+    "sqlSense.general.quickInfo": {
+      "type": "boolean",
+      "title": "Show object info on hover",
+      "description": "Resting the mouse on a table, view, column, procedure, function, variable, schema, user, role or login shows what it is: columns and types, parameters, foreign keys, role members.",
+      "default": true
+    },
+    "sqlSense.general.showLoadStatus": {
+      "type": "boolean",
+      "title": "Show metadata loading in the status bar",
+      "description": "While SqlSense reads a database's objects (first use of a connection, another database or a linked server, after Refresh Suggestions), the status bar shows an animated 'loading metadata…' message, then the number of objects and the time taken, or why it failed.",
+      "default": true
+    },
+    "sqlSense.general.refreshAfterDdl": {
+      "type": "boolean",
+      "title": "Refresh metadata after running CREATE/ALTER/DROP",
+      "description": "When the executed script (the selection, or the whole window) creates, alters or drops tables, views, procedures, indexes, schemas, users …, or runs SELECT … INTO, the affected databases' metadata reloads a moment later. Suggestions keep the old metadata until the new one arrives.",
+      "default": true
+    },
     "sqlSense.general.highlightInsertPairs": {
       "type": "boolean",
       "title": "Highlight INSERT columns and values",

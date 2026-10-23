@@ -21,7 +21,9 @@ thường gặp và định dạng SQL mà không bao giờ làm đổi nghĩa c
     ---
 
     Bảng sau `FROM`/`JOIN`, cột theo alias, procedure sau `EXEC`, kiểu dữ liệu, database, biến. Hiểu CTE, bảng tạm,
-    biến bảng. Tìm mờ: gõ `soh` ra `SalesOrderHeader`.
+    biến bảng. Tìm mờ: gõ `soh` ra `SalesOrderHeader`. Câu lệnh phân quyền (`ALTER ROLE`, `ADD MEMBER`, `GRANT … TO`)
+    gợi ý user, role, login, schema có sẵn; `BACKUP`/`RESTORE`, `DBCC`, `ALTER DATABASE`, `ALTER INDEX` gợi ý
+    database, file backup gần nhất, tuỳ chọn `WITH`, index. Rê chuột lên tên để xem cột, tham số, thành viên role.
 
 -   :material-auto-fix: **Tự sinh code**
 

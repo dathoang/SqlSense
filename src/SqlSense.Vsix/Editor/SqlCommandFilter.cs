@@ -32,6 +32,8 @@ namespace SqlSense.Editor
         {
             "FROM", "JOIN", "EXEC", "EXECUTE", "INTO", "UPDATE", "USE", "APPLY", "ON",
             "PROCEDURE", "PROC", "FUNCTION", "VIEW", "TRIGGER",
+            "ROLE", "USER", "LOGIN", "MEMBER", "SCHEMA", "DATABASE", "TO", "AUTHORIZATION",
+            "BACKUP", "RESTORE", "DBCC", "LOG", "INDEX", "STATISTICS",
         };
 
         private readonly IWpfTextView _view;

@@ -60,11 +60,14 @@
     <Compile Include="IntelliSense\SqlCompletionSourceProvider.cs" />
     <Compile Include="IntelliSense\SqlCompletionSource.cs" />
     <Compile Include="IntelliSense\SqlCompletionSet.cs" />
+    <Compile Include="IntelliSense\SqlQuickInfoSource.cs" />
     <Compile Include="Results\ResultGridReader.cs" />
     <Compile Include="Results\ResultActions.cs" />
     <Compile Include="Schema\SsmsConnection.cs" />
     <Compile Include="Schema\SchemaLoader.cs" />
     <Compile Include="Schema\SchemaService.cs" />
+    <Compile Include="Schema\SchemaStatus.cs" />
+    <Compile Include="Schema\DdlRefresher.cs" />
     <Compile Include="Settings\SettingsStore.cs" />
     <Compile Include="Settings\SqlSenseSettings.cs" />
     <Compile Include="Settings\StyleImport.cs" />

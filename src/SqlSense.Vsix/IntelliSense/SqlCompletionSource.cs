@@ -50,6 +50,8 @@ namespace SqlSense.IntelliSense
                     FilterByPrefix = false,
                 };
                 var result = engine.GetCompletions(text, caret, schema);
+                // Another database or linked server named in the text is loading: same reopen as above.
+                if (result.SchemaPending) session.Properties[SqlCommandFilter.WithoutSchemaMarker] = true;
                 Log.Trace($"augment kind={result.Context.Kind} prefix='{result.Context.Prefix}' prefixStart={result.Context.PrefixStart} caret={caret} " +
                           $"schema={(schema == null ? "null" : schema.DatabaseName + "/" + schema.Objects.Count + " objects/" + schema.OtherDatabases.Count + " dbs")} " +
                           $"items={result.Items.Count} " +
@@ -101,6 +103,12 @@ namespace SqlSense.IntelliSense
                 case CompletionItemKind.Variable: group = StandardGlyphGroup.GlyphGroupVariable; break;
                 case CompletionItemKind.Function: group = StandardGlyphGroup.GlyphGroupIntrinsic; break;
                 case CompletionItemKind.DataType: group = StandardGlyphGroup.GlyphGroupValueType; break;
+                case CompletionItemKind.User: group = StandardGlyphGroup.GlyphGroupClass; break;
+                case CompletionItemKind.Role: group = StandardGlyphGroup.GlyphGroupInterface; break;
+                case CompletionItemKind.Login: group = StandardGlyphGroup.GlyphGroupClass; item = StandardGlyphItem.GlyphItemFriend; break;
+                case CompletionItemKind.File: group = StandardGlyphGroup.GlyphGroupModule; item = StandardGlyphItem.GlyphItemFriend; break;
+                case CompletionItemKind.Index: group = StandardGlyphGroup.GlyphGroupProperty; break;
+                case CompletionItemKind.Server: group = StandardGlyphGroup.GlyphGroupModule; item = StandardGlyphItem.GlyphItemShortcut; break;
                 default: group = StandardGlyphGroup.GlyphGroupUnknown; break;
             }
             icon = _glyphs.GetGlyph(group, item);

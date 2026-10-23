@@ -22,6 +22,7 @@ namespace SqlSense
         public const int ScriptResultsAsInsert = 0x0106;
         public const int ImportSqlPromptStyle = 0x0107;
         public const int EditConnectionColors = 0x0108;
+        public const int RefreshAllSuggestions = 0x0109;
         public const int TabEditConnectionColors = 0x010D;
 
         // Document tab › Connection Color › Database / Server lists (SqlSense.vsct): a slot per palette

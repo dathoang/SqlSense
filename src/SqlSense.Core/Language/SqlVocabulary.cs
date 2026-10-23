@@ -148,7 +148,7 @@ namespace SqlSense.Core.Language
             "SELECT", "INSERT", "UPDATE", "DELETE", "MERGE", "DECLARE", "SET", "IF", "WHILE", "BEGIN", "END",
             "EXEC", "EXECUTE", "CREATE", "ALTER", "DROP", "TRUNCATE", "USE", "PRINT", "RETURN", "WITH",
             "GRANT", "REVOKE", "DENY", "THROW", "RAISERROR", "COMMIT", "ROLLBACK", "OPEN", "CLOSE", "FETCH",
-            "DEALLOCATE", "GOTO", "BREAK", "CONTINUE", "WAITFOR",
+            "DEALLOCATE", "GOTO", "BREAK", "CONTINUE", "WAITFOR", "BACKUP", "RESTORE", "DBCC", "CHECKPOINT",
         };
 
         public static bool IsDataType(string word) => DataTypes.Contains(word);

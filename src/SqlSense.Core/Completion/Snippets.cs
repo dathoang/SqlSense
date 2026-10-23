@@ -128,6 +128,13 @@ namespace SqlSense.Core.Completion
             yield return new Snippet("tt", "Temp table", "CREATE TABLE #$CURSOR$\n(\n    Id int NOT NULL\n);");
             yield return new Snippet("dt", "DROP TABLE IF EXISTS", "DROP TABLE IF EXISTS $CURSOR$;");
             yield return new Snippet("sn", "SET NOCOUNT ON", "SET NOCOUNT ON;$CURSOR$");
+            yield return new Snippet("bakd", "BACKUP DATABASE (full, compressed)",
+                "BACKUP DATABASE $CURSOR$\nTO DISK = N''\nWITH COMPRESSION, CHECKSUM, STATS = 10;");
+            yield return new Snippet("bakl", "BACKUP LOG",
+                "BACKUP LOG $CURSOR$\nTO DISK = N''\nWITH COMPRESSION, CHECKSUM, STATS = 10;");
+            yield return new Snippet("rsdb", "RESTORE DATABASE … WITH REPLACE",
+                "RESTORE DATABASE $CURSOR$\nFROM DISK = N''\nWITH REPLACE, RECOVERY, STATS = 10;");
+            yield return new Snippet("chkdb", "DBCC CHECKDB", "DBCC CHECKDB ($CURSOR$) WITH NO_INFOMSGS, ALL_ERRORMSGS;");
             yield return new Snippet("rn", "ROW_NUMBER() OVER", "ROW_NUMBER() OVER (PARTITION BY $CURSOR$ ORDER BY )");
             yield return new Snippet("sp_who", "Active sessions",
                 "SELECT s.session_id, s.login_name, s.host_name, r.status, r.command, r.wait_type, r.blocking_session_id, t.text\nFROM sys.dm_exec_sessions AS s\n    LEFT JOIN sys.dm_exec_requests AS r ON r.session_id = s.session_id\n    OUTER APPLY sys.dm_exec_sql_text(r.sql_handle) AS t\nWHERE s.is_user_process = 1;$CURSOR$");

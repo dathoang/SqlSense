@@ -18,6 +18,8 @@ namespace SqlSense.Core.Analysis
     /// <summary>A table-like source referenced by the current statement (FROM, JOIN, UPDATE, INTO …).</summary>
     public sealed class TableRef
     {
+        /// <summary>Linked server of a four-part name.</summary>
+        public string Server { get; set; }
         public string Database { get; set; }
         public string Schema { get; set; }
         public string Name { get; set; }
@@ -133,7 +135,8 @@ namespace SqlSense.Core.Analysis
                 case "SELECT":
                     return prevU == "UNION" || prevU == "ALL" || prevU == "EXCEPT" || prevU == "INTERSECT"
                            || prevU == "AS" || prevU == "FOR" || prevU == "DISTINCT"
-                           || first == "INSERT" || first == "WITH" || first == "CREATE" || first == "ALTER";
+                           || first == "INSERT" || first == "WITH" || first == "CREATE" || first == "ALTER"
+                           || (first == "GRANT" || first == "DENY" || first == "REVOKE") && (prevU == first || prevU == ",");
                 case "SET":
                     return first == "UPDATE" || first == "MERGE" || first == "ALTER" || prevU == "DELETE" || prevU == "UPDATE"
                            || (first == "WITH" && ContainsWord(sig, segStart, i, "UPDATE"));
@@ -150,7 +153,8 @@ namespace SqlSense.Core.Analysis
                     if (next != null && next.Text == "(") return true;
                     return first == "CREATE" || first == "ALTER" || first == "SELECT" || first == "INSERT"
                            || first == "UPDATE" || first == "DELETE" || first == "MERGE"
-                           || first == "DECLARE" || first == "RAISERROR" || first == "THROW";
+                           || first == "DECLARE" || first == "RAISERROR" || first == "THROW"
+                           || first == "BACKUP" || first == "RESTORE" || first == "DBCC";
                 case "EXEC":
                 case "EXECUTE":
                     return first == "INSERT" || prevU == "WITH" || prevU == "," || first == "GRANT" || first == "DENY" || first == "REVOKE";
@@ -163,8 +167,10 @@ namespace SqlSense.Core.Analysis
                 case "OPEN":
                 case "CLOSE":
                     return prevU == "=";
-                case "RETURN":
                 case "DROP":
+                    // ALTER [SERVER] ROLE r DROP MEMBER m
+                    return first == "ALTER" && next != null && next.Is("MEMBER");
+                case "RETURN":
                 case "DECLARE":
                 case "CREATE":
                     return false;
@@ -257,6 +263,7 @@ namespace SqlSense.Core.Analysis
                 r.Name = parts[parts.Count - 1];
                 if (parts.Count >= 2) r.Schema = NullIfEmpty(parts[parts.Count - 2]);
                 if (parts.Count >= 3) r.Database = NullIfEmpty(parts[parts.Count - 3]);
+                if (parts.Count >= 4) r.Server = NullIfEmpty(parts[parts.Count - 4]);
                 if (k <= end && sig[k].Text == "(")
                 {
                     var close = MatchingParen(sig, k);

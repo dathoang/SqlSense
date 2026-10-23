@@ -143,6 +143,8 @@ namespace SqlSense.Core.Tests
         }
 
         [Theory]
+        [InlineData("grant select, insert on dbo.T to bob; alter role r drop member bob; revoke select on schema::s from bob")]
+        [InlineData("select 1 backup database Shop to disk = N'a.bak' with compression, stats = 10 restore database Shop from disk = N'a.bak' with move N'x' to N'y', replace dbcc checkdb (Shop) with no_infomsgs checkpoint")]
         [InlineData("select a.b, [weird name], @v, N'x' + 'y' from [dbo].[t] with (nolock) where a.b <> 1 and c >= 2 or d != 3")]
         [InlineData("merge dbo.t as tgt using dbo.s as src on tgt.id = src.id when matched then update set tgt.v = src.v when not matched then insert (id, v) values (src.id, src.v);")]
         [InlineData("select row_number() over (partition by a order by b desc) rn, left(name, 3), cast(x as decimal(10, 2)) from t order by 1 offset 10 rows fetch next 5 rows only")]
