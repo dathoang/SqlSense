@@ -425,15 +425,14 @@ namespace SqlSense.Editor
         }
 
         /// <summary>
-        /// The typed prefix plus the rest of the word after the caret, so committing before or inside
-        /// an existing word ("n|ame", "[Cu|]" with an auto-closed bracket) replaces it instead of
-        /// leaving the old tail behind ("namename", "[Customers]]").
+        /// Only the typed prefix: committing inside a word ("n|ame") inserts at the caret and keeps the
+        /// text after it. An auto-closed bracket right after the caret ("[Cu|]") is still swallowed, so
+        /// the result is "[Customers]" and not "[Customers]]".
         /// </summary>
         private static Span ReplacementSpan(SnapshotSpan typed)
         {
             var snapshot = typed.Snapshot;
             var end = typed.End.Position;
-            while (end < snapshot.Length && IsWordChar(snapshot[end])) end++;
             var text = typed.GetText();
             if (text.StartsWith("[", StringComparison.Ordinal) && text.IndexOf(']') < 0
                 && end < snapshot.Length && snapshot[end] == ']')

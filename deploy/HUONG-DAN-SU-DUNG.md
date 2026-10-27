@@ -294,6 +294,7 @@ ORDER BY ChangedAt DESC;
 ### 2.10 Khác
 
 * Gõ `(`, `[`, `'` tự thêm dấu đóng; gõ dấu đóng sẽ đè lên dấu có sẵn.
+* Chọn gợi ý khi con trỏ đang ở giữa một từ chỉ chèn tại con trỏ (thay phần đã gõ), phần chữ phía sau con trỏ được giữ nguyên.
 * `DECLARE @x ` / `CAST(… AS ` gợi ý kiểu dữ liệu; `USE ` gợi ý database; `@` gợi ý biến đã khai báo.
 * `USE TenDb` trong script đổi database dùng cho gợi ý ở các câu bên dưới.
 
