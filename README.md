@@ -64,6 +64,14 @@ binaries are used. The parser is Microsoft's open-source `Microsoft.SqlServer.Tr
 - **Safe by construction:** after formatting, the token stream is compared with the original. If anything other than
   whitespace or word case would change, nothing is applied and the reason is shown in the status bar.
 
+**Code folding** (VS Code style)
+- Collapsible regions: `BEGIN … END` (TRY/CATCH), multi-line `CASE … END`, statements (`SELECT`, `INSERT`, `UPDATE`,
+  `DELETE`, `MERGE`, `WITH`, `EXEC`, `DECLARE`, `CREATE`/`ALTER`), whole procedures/functions/views/triggers,
+  multi-line `( … )`, `/* */` and consecutive `--` comments, `-- #region … -- #endregion`.
+- Ctrl+K, Ctrl+1…7 fold that nesting level (except the region holding the caret), Ctrl+K, Ctrl+0 folds all,
+  Ctrl+K, Ctrl+J unfolds all, Ctrl+K, Ctrl+[ / ] fold/unfold recursively, Ctrl+K, Ctrl+8 folds all `#region`s;
+  also Tools › SqlSense › Folding. Options: General › Code folding, Fold statements.
+
 **Results grid** (right-click)
 - Open Results in Excel: the grid (or the selected cells) as a typed `.xlsx`.
 - Script Results as INSERT: `INSERT … VALUES` statements in a new query window, target table guessed from the query.
@@ -73,7 +81,7 @@ binaries are used. The parser is Microsoft's open-source `Microsoft.SqlServer.Tr
   `Documents\SqlSense\ConnectionColors.txt` (`server[/database] = color`, wildcards). The tab's right-click menu
   › Connection Color sets a rule for the window's database or server.
 
-**Menu:** Tools › SqlSense (Format SQL, Expand Wildcard, Refresh Suggestions, Refresh All Suggestions, Enable/Disable, Show Log,
+**Menu:** Tools › SqlSense (Format SQL, Expand Wildcard, Folding, Refresh Suggestions, Refresh All Suggestions, Enable/Disable, Show Log,
 Import SQL Prompt Style, Edit Connection Colors).
 **Options:** Tools › Options › SqlSense (General, Suggestions, Formatting, Connection Colors).
 

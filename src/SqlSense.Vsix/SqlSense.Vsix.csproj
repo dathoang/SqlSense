@@ -51,6 +51,8 @@
     <Compile Include="Connections\ConnectionColorService.cs" />
     <Compile Include="Connections\SetTabColorBlocker.cs" />
     <Compile Include="Diagnostics\Log.cs" />
+    <Compile Include="Editor\FoldingActions.cs" />
+    <Compile Include="Editor\FoldingTagger.cs" />
     <Compile Include="Editor\SqlDocument.cs" />
     <Compile Include="Editor\SqlViewListener.cs" />
     <Compile Include="Editor\SqlCommandFilter.cs" />

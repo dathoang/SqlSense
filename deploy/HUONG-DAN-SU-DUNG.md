@@ -1,7 +1,8 @@
 # SqlSense cho SSMS 22 — Hướng dẫn cài đặt và sử dụng
 
 SqlSense là extension cho **SQL Server Management Studio 22** (x64): gợi ý T-SQL theo schema, tự động sinh code
-(alias, điều kiện JOIN, INSERT/EXEC, mở rộng `SELECT *`, snippet), định dạng SQL an toàn, xuất kết quả ra Excel /
+(alias, điều kiện JOIN, INSERT/EXEC, mở rộng `SELECT *`, snippet), định dạng SQL an toàn, gập code theo cấp như
+VS Code, xuất kết quả ra Excel /
 INSERT và tô màu cửa sổ truy vấn theo server/database.
 
 Bản online của tài liệu này (có tìm kiếm): <https://dathoang.github.io/SqlSense/huong-dan/>
@@ -17,7 +18,7 @@ Bản online của tài liệu này (có tìm kiếm): <https://dathoang.github.
 | Hệ điều hành | Windows 10/11 x64 |
 | SSMS | **SQL Server Management Studio 22** (bản x64). SSMS 20/21 trở xuống **không** được hỗ trợ |
 | Quyền | Không cần quyền Administrator (extension cài theo từng user) |
-| Xác thực SQL | Windows Authentication hoặc SQL Server Authentication để có gợi ý theo schema (xem mục 6) |
+| Xác thực SQL | Windows Authentication hoặc SQL Server Authentication để có gợi ý theo schema (xem mục 7) |
 
 ### 1.2 Cài bằng bộ cài (khuyến nghị)
 
@@ -343,7 +344,62 @@ những thiết lập chưa có tương đương; chi tiết ở Show Log.
 
 ---
 
-## 4. Làm việc với kết quả truy vấn
+## 4. Đóng mở code (folding)
+
+Script dài có thể gập lại theo khối, giống VS Code. Bên trái số dòng có **mũi tên** (chevron) ở đầu mỗi vùng gập
+được; bấm vào để gập/mở. Rê chuột lên phần đã gập để xem nội dung bên trong.
+
+Vùng gập được:
+
+| Vùng | Ví dụ |
+|---|---|
+| Khối `BEGIN … END`, `BEGIN TRY … END TRY`, `BEGIN CATCH … END CATCH` | thân `IF`, `WHILE`, procedure |
+| `CASE … END` nhiều dòng | |
+| Câu lệnh nhiều dòng | `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `MERGE`, `WITH` (CTE), `EXEC`, `DECLARE`, `CREATE`/`ALTER` |
+| Cả procedure / function / view / trigger | từ `CREATE`/`ALTER` tới hết batch (trước `GO`) |
+| Ngoặc `( … )` nhiều dòng | subquery, danh sách cột của `CREATE TABLE`, `VALUES` |
+| Comment | `/* … */` nhiều dòng; nhiều dòng `--` liền nhau |
+| Vùng tự đặt tên | từ `-- #region Tên` tới `-- #endregion` |
+
+```sql
+-- #region Chuẩn bị dữ liệu
+DECLARE @from date = '2024-01-01',
+        @to   date = '2024-12-31';
+-- #endregion
+
+IF @from < @to
+BEGIN
+    SELECT c.CustomerID,
+           c.Name
+    FROM dbo.Customers c
+    WHERE c.CreatedAt BETWEEN @from AND @to;
+END
+```
+
+**Cấp (level):** vùng không nằm trong vùng nào khác là cấp 1, vùng nằm ngay trong nó là cấp 2, … Ở ví dụ trên, `#region`
+và khối `BEGIN … END` là cấp 1; `DECLARE` và `SELECT` là cấp 2.
+
+Phím tắt (bấm **Ctrl+K**, thả ra, rồi bấm phím thứ hai), cũng có ở **Tools › SqlSense › Folding**:
+
+| Phím | Lệnh |
+|---|---|
+| Ctrl+K, Ctrl+1 … Ctrl+7 | **Fold Level N**: gập mọi vùng cấp N (trừ vùng đang chứa con trỏ) |
+| Ctrl+K, Ctrl+0 | **Fold All**: gập tất cả |
+| Ctrl+K, Ctrl+J | **Unfold All**: mở tất cả |
+| Ctrl+K, Ctrl+[ | **Fold Recursively**: gập vùng tại con trỏ và mọi vùng bên trong |
+| Ctrl+K, Ctrl+] | **Unfold Recursively**: mở vùng tại con trỏ và mọi vùng bên trong |
+| Ctrl+K, Ctrl+8 | **Fold All #region Blocks**: gập mọi vùng `-- #region` |
+| (chỉ có trong menu) | **Fold All Comments**: gập mọi comment |
+| Ctrl+M, Ctrl+M | Gập/mở vùng tại con trỏ (lệnh có sẵn của SSMS) |
+
+Mẹo: muốn xem "dàn ý" một script dài, bấm **Ctrl+K, Ctrl+1** — mỗi câu lệnh, khối và region ngoài cùng thu về một dòng.
+
+Tuỳ chọn ở Tools › Options › **SqlSense › General**: *Code folding* (bật/tắt cả tính năng) và *Fold statements*
+(tắt nếu chỉ muốn gập khối, ngoặc, comment và region, không gập từng câu lệnh).
+
+---
+
+## 5. Làm việc với kết quả truy vấn
 
 Chuột phải trên lưới kết quả (Results grid):
 
@@ -357,11 +413,11 @@ tạo script seed/test data, gửi số liệu cho người không dùng SSMS.
 
 ---
 
-## 5. Tô màu cửa sổ theo kết nối (tránh chạy nhầm PROD)
+## 6. Tô màu cửa sổ theo kết nối (tránh chạy nhầm PROD)
 
 Mỗi cửa sổ query được tô màu tab, khung editor và thanh trạng thái theo server/database đang kết nối.
 
-### 5.1 Đặt màu nhanh từ tab
+### 6.1 Đặt màu nhanh từ tab
 
 Chuột phải lên **tab** cửa sổ query › **Connection Color**:
 
@@ -370,7 +426,7 @@ Chuột phải lên **tab** cửa sổ query › **Connection Color**:
 * **No Color** — không tô (ví dụ loại `tempdb` khỏi màu của server), **Custom...** — chọn màu tuỳ ý,
   **Remove Rule** — xoá quy tắc.
 
-### 5.2 File quy tắc
+### 6.2 File quy tắc
 
 **Tools › SqlSense › Edit Connection Colors...** mở `Documents\SqlSense\ConnectionColors.txt`. Lưu file là áp dụng ngay:
 
@@ -395,14 +451,15 @@ Menu *Set Tab Color* có sẵn của SSMS được ẩn đi vì nó lưu màu th
 
 ---
 
-## 6. Thiết lập và xử lý sự cố
+## 7. Thiết lập và xử lý sự cố
 
-### 6.1 Menu Tools › SqlSense
+### 7.1 Menu Tools › SqlSense
 
 | Lệnh | Khi nào dùng |
 |---|---|
 | Format SQL (Ctrl+K, Ctrl+Y) | Định dạng |
 | Expand Wildcard (Ctrl+B, Ctrl+W) | Mở rộng `SELECT *` |
+| Folding › … | Gập/mở code theo cấp (mục 4) |
 | **Refresh Suggestions** (Ctrl+Shift+D) | Tải lại ngay metadata của database đang dùng ở cửa sổ query (hoặc database của `USE` phía trên con trỏ). Gợi ý vẫn dùng bản cũ cho tới khi bản mới xong |
 | Refresh All Suggestions | Đánh dấu mọi database/linked server đã cache để tải lại ở lần dùng tiếp theo (ví dụ sau khi người khác sửa schema trên nhiều database) |
 | Disable / Enable SqlSense | Tạm tắt toàn bộ SqlSense |
@@ -425,7 +482,7 @@ dòng *SqlSense: loading metadata for SERVER/Db…*, kể cả khi refresh (th�
 lỗi thì hiện lý do (chi tiết trong Show Log). Lần làm mới định kỳ (sau thời gian cache) chạy ngầm, không thông báo.
 Tắt ở Tools › Options › SqlSense › General › *Show metadata loading in the status bar*.
 
-### 6.2 Sự cố thường gặp
+### 7.2 Sự cố thường gặp
 
 | Hiện tượng | Nguyên nhân / cách xử lý |
 |---|---|
@@ -434,7 +491,8 @@ Tắt ở Tools › Options › SqlSense › General › *Show metadata loading 
 | Chỉ gợi ý từ khoá/hàm, không có bảng/cột | Đăng nhập bằng **Microsoft Entra ID** (chưa hỗ trợ — dùng Windows/SQL auth), SSMS không cung cấp mật khẩu SQL login (tick *Remember password*), hoặc schema đang nạp lần đầu (database lớn mất vài giây — thanh trạng thái hiện *loading metadata…*). Xem Show Log |
 | Thiếu bảng/cột vừa tạo | Nếu tạo bằng script trong SSMS thì thường tự cập nhật sau vài giây; nếu không (SQL động, công cụ khác, người khác sửa) bấm **Ctrl+Shift+D** (Refresh Suggestions) |
 | Đổi database ở dropdown nhưng gợi ý vẫn của database cũ | Thêm `USE TenDb` ở đầu script, hoặc Ctrl+Shift+D |
-| Ctrl+Shift+D không làm gì / làm việc khác | Phím tắt bị lệnh khác chiếm: gán lại ở Tools › Options › Environment › Keyboard, lệnh *SqlSense.RefreshSuggestions* |
+| Ctrl+Shift+D không làm gì / làm việc khác | Phím tắt bị lệnh khác chiếm: gán lại ở Tools › Options › Environment › Keyboard, lệnh *SqlSense.RefreshSuggestions* (tương tự cho phím gập code: lệnh *SqlSense.FoldLevel1*, *SqlSense.FoldAll*, …) |
+| Mũi tên gập code hiện hai lần ở cùng dòng | Có thể SSMS cũng đang tự gập theo câu lệnh. Tắt IntelliSense của SSMS (mục 1.4) rồi mở lại cửa sổ query, hoặc tắt *Fold statements* của SqlSense |
 | Format không làm gì | Xem thanh trạng thái: formatter từ chối vì kết quả sẽ thay đổi token (SQL lỗi cú pháp nặng thường gây ra). Gửi đoạn SQL đó cho nhóm phát triển |
 | Cài báo lỗi | Xem log VSIXInstaller ở đường dẫn script in ra (`%TEMP%\SqlSense_install_*.log`) |
 
@@ -443,7 +501,7 @@ Khi báo lỗi, gửi kèm nội dung **Show Log**, phiên bản SqlSense (Exten
 
 ---
 
-## 7. Dành cho người build bộ cài
+## 8. Dành cho người build bộ cài
 
 Yêu cầu: Visual Studio 2022/2026 với workload **Visual Studio extension development**, .NET SDK và Node.js 22+
 (để sinh tài liệu Word từ `deploy\HUONG-DAN-SU-DUNG.md`; lần đầu script tự chạy `npm ci` trong `deploy\tools`).

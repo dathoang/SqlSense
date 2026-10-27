@@ -36,11 +36,29 @@
           <ButtonText>Server</ButtonText>
         </Strings>
       </Menu>
+      <Menu guid="guidSqlSenseCmdSet" id="SqlSenseFoldingMenu" priority="0x0100" type="Menu">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseFoldingMenuGroup" />
+        <Strings>
+          <ButtonText>Folding</ButtonText>
+        </Strings>
+      </Menu>
     </Menus>
 
     <Groups>
       <Group guid="guidSqlSenseCmdSet" id="SqlSenseMenuGroup" priority="0x0600">
         <Parent guid="guidSqlSenseCmdSet" id="SqlSenseMenu" />
+      </Group>
+      <Group guid="guidSqlSenseCmdSet" id="SqlSenseFoldingMenuGroup" priority="0x0650">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseMenu" />
+      </Group>
+      <Group guid="guidSqlSenseCmdSet" id="SqlSenseFoldAllGroup" priority="0x0100">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseFoldingMenu" />
+      </Group>
+      <Group guid="guidSqlSenseCmdSet" id="SqlSenseFoldLevelGroup" priority="0x0200">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseFoldingMenu" />
+      </Group>
+      <Group guid="guidSqlSenseCmdSet" id="SqlSenseFoldKindGroup" priority="0x0300">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseFoldingMenu" />
       </Group>
       <Group guid="guidSqlSenseCmdSet" id="SqlSenseResultsMenuGroup" priority="0x0700">
         <Parent guid="guidSqlSenseCmdSet" id="SqlSenseMenu" />
@@ -132,6 +150,124 @@
         <Strings>
           <ButtonText>Edit Connection Colors...</ButtonText>
           <CanonicalName>SqlSense.EditConnectionColors</CanonicalName>
+        </Strings>
+      </Button>
+      <!-- Tools › SqlSense › Folding (VS Code style; keys in KeyBindings). -->
+      <Button guid="guidSqlSenseCmdSet" id="cmdidFoldAll" priority="0x0100" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseFoldAllGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Fold All</ButtonText>
+          <CanonicalName>SqlSense.FoldAll</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidUnfoldAll" priority="0x0101" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseFoldAllGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Unfold All</ButtonText>
+          <CanonicalName>SqlSense.UnfoldAll</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidFoldRecursively" priority="0x0102" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseFoldAllGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Fold Recursively</ButtonText>
+          <CanonicalName>SqlSense.FoldRecursively</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidUnfoldRecursively" priority="0x0103" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseFoldAllGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Unfold Recursively</ButtonText>
+          <CanonicalName>SqlSense.UnfoldRecursively</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidFoldLevel1" priority="0x0104" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseFoldLevelGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Fold Level 1</ButtonText>
+          <CanonicalName>SqlSense.FoldLevel1</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidFoldLevel2" priority="0x0105" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseFoldLevelGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Fold Level 2</ButtonText>
+          <CanonicalName>SqlSense.FoldLevel2</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidFoldLevel3" priority="0x0106" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseFoldLevelGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Fold Level 3</ButtonText>
+          <CanonicalName>SqlSense.FoldLevel3</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidFoldLevel4" priority="0x0107" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseFoldLevelGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Fold Level 4</ButtonText>
+          <CanonicalName>SqlSense.FoldLevel4</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidFoldLevel5" priority="0x0108" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseFoldLevelGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Fold Level 5</ButtonText>
+          <CanonicalName>SqlSense.FoldLevel5</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidFoldLevel6" priority="0x0109" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseFoldLevelGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Fold Level 6</ButtonText>
+          <CanonicalName>SqlSense.FoldLevel6</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidFoldLevel7" priority="0x010A" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseFoldLevelGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Fold Level 7</ButtonText>
+          <CanonicalName>SqlSense.FoldLevel7</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidFoldAllRegions" priority="0x010B" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseFoldKindGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Fold All #region Blocks</ButtonText>
+          <CanonicalName>SqlSense.FoldAllRegions</CanonicalName>
+        </Strings>
+      </Button>
+      <Button guid="guidSqlSenseCmdSet" id="cmdidFoldAllComments" priority="0x010C" type="Button">
+        <Parent guid="guidSqlSenseCmdSet" id="SqlSenseFoldKindGroup" />
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Fold All Comments</ButtonText>
+          <CanonicalName>SqlSense.FoldAllComments</CanonicalName>
         </Strings>
       </Button>
       <Button guid="guidSqlSenseCmdSet" id="cmdidOpenResultsInExcel" priority="0x0100" type="Button">
@@ -600,6 +736,19 @@
     <KeyBinding guid="guidSqlSenseCmdSet" id="cmdidFormatSql" editor="guidVSStd97" key1="K" mod1="Control" key2="Y" mod2="Control" />
     <KeyBinding guid="guidSqlSenseCmdSet" id="cmdidExpandWildcards" editor="guidVSStd97" key1="B" mod1="Control" key2="W" mod2="Control" />
     <KeyBinding guid="guidSqlSenseCmdSet" id="cmdidRefreshSuggestions" editor="guidVSStd97" key1="D" mod1="Control Shift" />
+    <!-- Folding: Ctrl+K, then Ctrl+0 / 1…7 / 8 / J / [ / ], as in VS Code. -->
+    <KeyBinding guid="guidSqlSenseCmdSet" id="cmdidFoldAll" editor="guidVSStd97" key1="K" mod1="Control" key2="0" mod2="Control" />
+    <KeyBinding guid="guidSqlSenseCmdSet" id="cmdidUnfoldAll" editor="guidVSStd97" key1="K" mod1="Control" key2="J" mod2="Control" />
+    <KeyBinding guid="guidSqlSenseCmdSet" id="cmdidFoldRecursively" editor="guidVSStd97" key1="K" mod1="Control" key2="VK_OEM_4" mod2="Control" />
+    <KeyBinding guid="guidSqlSenseCmdSet" id="cmdidUnfoldRecursively" editor="guidVSStd97" key1="K" mod1="Control" key2="VK_OEM_6" mod2="Control" />
+    <KeyBinding guid="guidSqlSenseCmdSet" id="cmdidFoldLevel1" editor="guidVSStd97" key1="K" mod1="Control" key2="1" mod2="Control" />
+    <KeyBinding guid="guidSqlSenseCmdSet" id="cmdidFoldLevel2" editor="guidVSStd97" key1="K" mod1="Control" key2="2" mod2="Control" />
+    <KeyBinding guid="guidSqlSenseCmdSet" id="cmdidFoldLevel3" editor="guidVSStd97" key1="K" mod1="Control" key2="3" mod2="Control" />
+    <KeyBinding guid="guidSqlSenseCmdSet" id="cmdidFoldLevel4" editor="guidVSStd97" key1="K" mod1="Control" key2="4" mod2="Control" />
+    <KeyBinding guid="guidSqlSenseCmdSet" id="cmdidFoldLevel5" editor="guidVSStd97" key1="K" mod1="Control" key2="5" mod2="Control" />
+    <KeyBinding guid="guidSqlSenseCmdSet" id="cmdidFoldLevel6" editor="guidVSStd97" key1="K" mod1="Control" key2="6" mod2="Control" />
+    <KeyBinding guid="guidSqlSenseCmdSet" id="cmdidFoldLevel7" editor="guidVSStd97" key1="K" mod1="Control" key2="7" mod2="Control" />
+    <KeyBinding guid="guidSqlSenseCmdSet" id="cmdidFoldAllRegions" editor="guidVSStd97" key1="K" mod1="Control" key2="8" mod2="Control" />
   </KeyBindings>
 
   <Symbols>
@@ -618,6 +767,24 @@
       <IDSymbol name="cmdidEditConnectionColors" value="0x0108" />
       <IDSymbol name="cmdidRefreshAllSuggestions" value="0x0109" />
       <IDSymbol name="cmdidTabEditConnectionColors" value="0x010D" />
+      <IDSymbol name="cmdidFoldAll" value="0x0117" />
+      <IDSymbol name="cmdidUnfoldAll" value="0x0118" />
+      <IDSymbol name="cmdidFoldRecursively" value="0x0119" />
+      <IDSymbol name="cmdidUnfoldRecursively" value="0x011A" />
+      <IDSymbol name="cmdidFoldLevel1" value="0x0110" />
+      <IDSymbol name="cmdidFoldLevel2" value="0x0111" />
+      <IDSymbol name="cmdidFoldLevel3" value="0x0112" />
+      <IDSymbol name="cmdidFoldLevel4" value="0x0113" />
+      <IDSymbol name="cmdidFoldLevel5" value="0x0114" />
+      <IDSymbol name="cmdidFoldLevel6" value="0x0115" />
+      <IDSymbol name="cmdidFoldLevel7" value="0x0116" />
+      <IDSymbol name="cmdidFoldAllRegions" value="0x011B" />
+      <IDSymbol name="cmdidFoldAllComments" value="0x011C" />
+      <IDSymbol name="SqlSenseFoldingMenuGroup" value="0x1025" />
+      <IDSymbol name="SqlSenseFoldingMenu" value="0x1026" />
+      <IDSymbol name="SqlSenseFoldAllGroup" value="0x1027" />
+      <IDSymbol name="SqlSenseFoldLevelGroup" value="0x1028" />
+      <IDSymbol name="SqlSenseFoldKindGroup" value="0x1029" />
       <IDSymbol name="cmdidTabDbColor0" value="0x0200" />
       <IDSymbol name="cmdidTabDbColor1" value="0x0201" />
       <IDSymbol name="cmdidTabDbColor2" value="0x0202" />

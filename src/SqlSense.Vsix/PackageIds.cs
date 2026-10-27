@@ -25,6 +25,16 @@ namespace SqlSense
         public const int RefreshAllSuggestions = 0x0109;
         public const int TabEditConnectionColors = 0x010D;
 
+        // Tools › SqlSense › Folding: Fold Level 1…FoldLevels from FoldLevelBase, then the other commands.
+        public const int FoldLevelBase = 0x0110;
+        public const int FoldLevels = 7;
+        public const int FoldAll = 0x0117;
+        public const int UnfoldAll = 0x0118;
+        public const int FoldRecursively = 0x0119;
+        public const int UnfoldRecursively = 0x011A;
+        public const int FoldAllRegions = 0x011B;
+        public const int FoldAllComments = 0x011C;
+
         // Document tab › Connection Color › Database / Server lists (SqlSense.vsct): a slot per palette
         // colour from the base id, then No Color, Custom... and Remove Rule at fixed offsets.
         public const int TabDbMenu = 0x1051;

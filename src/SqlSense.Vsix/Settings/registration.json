@@ -44,6 +44,19 @@
       "default": true,
       "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\HighlightInsertPairs" }, "mode": "oneTimeFromLegacy" } }
     },
+    "sqlSense.general.folding": {
+      "type": "boolean",
+      "title": "Code folding",
+      "description": "Collapsible regions for BEGIN … END, CASE … END, ( … ), procedures/functions/views/triggers, comments and -- #region … -- #endregion, with VS Code style commands: Ctrl+K, Ctrl+1…7 fold that level, Ctrl+K, Ctrl+0 folds all, Ctrl+K, Ctrl+J unfolds all (Tools › SqlSense › Folding).",
+      "default": true
+    },
+    "sqlSense.general.foldStatements": {
+      "type": "boolean",
+      "title": "Fold statements",
+      "description": "Also make each multi-line SELECT, INSERT, UPDATE, DELETE, MERGE, WITH, EXEC, DECLARE and CREATE/ALTER statement collapsible.",
+      "default": true,
+      "enableWhen": "${config:sqlSense.general.folding} == 'true'"
+    },
     "sqlSense.general.snippetsFolder": {
       "type": "string",
       "title": "Snippets folder",

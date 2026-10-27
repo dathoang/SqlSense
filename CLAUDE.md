@@ -36,6 +36,7 @@ on push to main. Never use `docs/` for it (private, git-ignored). Check locally 
   - `Analysis/ContextAnalyzer`: classifies the caret into a `ContextKind` and collects tables in scope.
   - `Completion/*`: `CompletionEngine` (items + ranking), `CompletionMatcher` (prefix > initials > substring), `Generators` (aliases, FK join conditions, `StarExpander`), `Snippets`.
   - `Formatting/SqlFormatter`: token-stream formatter with a frame stack (Root/Block/Subquery/ColumnList/Paren/Case).
+  - `Folding/FoldingAnalyzer`: folding regions (blocks, statements, modules, parens, comments, `-- #region`) with nesting levels. The VSIX side is `Editor/FoldingTagger` (`IOutliningRegionTag`; `FoldingTag` carries the region) and `Editor/FoldingActions` (VS Code style Fold Level N / Fold All / recursive commands, only on SqlSense's tags; SSMS 22 draws chevrons, not +/−).
 - `src/SqlSense.Vsix` (net48, classic csproj): SSMS shell only.
   - `Editor/SqlCommandFilter`: `IOleCommandTarget` added via `IVsTextView.AddCommandFilter`; routes TYPECHAR/TAB/RETURN/arrows/Esc/Ctrl+Space/Format.
   - `Editor/ObjectScripter`: after an object is picked in `ALTER PROCEDURE|FUNCTION|VIEW|TRIGGER` (empty batch; `CompletionItem.ScriptRequest`), loads `OBJECT_DEFINITION` in the background and replaces the statement with `Core/Completion/ModuleScript.Build` (CREATE → ALTER), only if the text is unchanged.

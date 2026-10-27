@@ -6,9 +6,11 @@ using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Editor;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Text.Editor;
+using Microsoft.VisualStudio.Text.Outlining;
 using Microsoft.VisualStudio.TextManager.Interop;
 using SqlSense.Connections;
 using SqlSense.Core.Connections;
+using SqlSense.Core.Folding;
 using SqlSense.Diagnostics;
 using SqlSense.Editor;
 using SqlSense.Results;
@@ -24,6 +26,7 @@ namespace SqlSense.Commands
         private static SqlSensePackage _package;
         private static IVsEditorAdaptersFactoryService _adapters;
         private static IVsTextManager _textManager;
+        private static IOutliningManagerService _outlining;
 
         public static async Task InitializeAsync(SqlSensePackage package)
         {
@@ -38,6 +41,7 @@ namespace SqlSense.Commands
                 return;
             }
             _adapters = componentModel.GetService<IVsEditorAdaptersFactoryService>();
+            _outlining = componentModel.GetService<IOutliningManagerService>();
 
             Add(commands, PackageIds.FormatSql, (s, e) => WithSqlView(EditorActions.Format), SqlViewVisible);
             Add(commands, PackageIds.ExpandWildcards, (s, e) => WithSqlView(v =>
@@ -45,6 +49,19 @@ namespace SqlSense.Commands
                 if (!EditorActions.TryExpandWildcard(v, searchLine: true))
                     EditorActions.Status("SqlSense: no SELECT * with known columns on this line (is the schema loaded?).");
             }), SqlViewVisible);
+            for (var i = 0; i < PackageIds.FoldLevels; i++)
+            {
+                var level = i + 1;
+                Add(commands, PackageIds.FoldLevelBase + i, (s, e) => WithSqlView(v => FoldingActions.FoldLevel(_outlining, v, level)), SqlViewVisible);
+            }
+            Add(commands, PackageIds.FoldAll, (s, e) => WithSqlView(v => FoldingActions.FoldAll(_outlining, v)), SqlViewVisible);
+            Add(commands, PackageIds.UnfoldAll, (s, e) => WithSqlView(v => FoldingActions.UnfoldAll(_outlining, v)), SqlViewVisible);
+            Add(commands, PackageIds.FoldRecursively, (s, e) => WithSqlView(v => FoldingActions.FoldRecursively(_outlining, v)), SqlViewVisible);
+            Add(commands, PackageIds.UnfoldRecursively, (s, e) => WithSqlView(v => FoldingActions.UnfoldRecursively(_outlining, v)), SqlViewVisible);
+            Add(commands, PackageIds.FoldAllRegions, (s, e) => WithSqlView(v =>
+                FoldingActions.FoldKind(_outlining, v, FoldKind.Region, "-- #region blocks")), SqlViewVisible);
+            Add(commands, PackageIds.FoldAllComments, (s, e) => WithSqlView(v =>
+                FoldingActions.FoldKind(_outlining, v, FoldKind.Comment, "comments")), SqlViewVisible);
             Add(commands, PackageIds.RefreshSuggestions, (s, e) =>
             {
                 // The window's database (or the one a USE before the caret names), reloaded now behind the old snapshot.

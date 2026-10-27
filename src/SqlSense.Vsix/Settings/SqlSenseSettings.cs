@@ -16,6 +16,8 @@ namespace SqlSense.Settings
         public bool TabExpandsSnippets { get; set; } = true;
         public bool TabExpandsWildcard { get; set; } = true;
         public bool HighlightInsertPairs { get; set; } = true;
+        public bool Folding { get; set; } = true;
+        public bool FoldStatements { get; set; } = true;
         public bool QuickInfo { get; set; } = true;
         public bool ShowLoadStatus { get; set; } = true;
         public bool RefreshAfterDdl { get; set; } = true;

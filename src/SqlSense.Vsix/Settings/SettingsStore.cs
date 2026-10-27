@@ -121,6 +121,8 @@ namespace SqlSense.Settings
                 ConnectionColorsFile = string.IsNullOrWhiteSpace(colorsFile) ? SqlSenseSettings.DefaultConnectionColorsFile : colorsFile,
                 Enabled = Get(General + "enabled", true),
                 HighlightInsertPairs = Get(General + "highlightInsertPairs", true),
+                Folding = Get(General + "folding", true),
+                FoldStatements = Get(General + "foldStatements", true),
                 QuickInfo = Get(General + "quickInfo", true),
                 ShowLoadStatus = Get(General + "showLoadStatus", true),
                 RefreshAfterDdl = Get(General + "refreshAfterDdl", true),
