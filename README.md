@@ -90,7 +90,7 @@ User guide (Vietnamese), from install to the main use cases: [deploy/HUONG-DAN-S
 ## Install
 
 Download `SqlSense-<version>.zip` from the [latest release](https://github.com/dathoang/SqlSense/releases/latest)
-(currently [1.4.0](https://github.com/dathoang/SqlSense/releases/tag/v1.4.0)) or build it (below), unzip it,
+(currently [1.5.1](https://github.com/dathoang/SqlSense/releases/tag/v1.5.1)) or build it (below), unzip it,
 close SSMS 22 and double-click `Install.cmd`. It finds every
 SSMS 22 instance with vswhere and runs SSMS's own `VSIXInstaller.exe` (per user, no admin rights). Double-clicking
 the `.vsix` itself may install into Visual Studio instead. `Uninstall.cmd` removes it.
@@ -107,8 +107,8 @@ Requires Visual Studio 2026 (or 2022) with the *Visual Studio extension developm
 Node.js 22+ (renders the user guide to .docx via `deploy\tools`; `npm ci` runs there on first use).
 
 ```powershell
-.\deploy\Build-Package.ps1 -Version 1.4.0           # tests, Rebuild Release, zip + separate .vsix and .docx in dist\
-.\deploy\Build-Package.ps1 -Version 1.4.0 -Install  # ... and install into this machine's SSMS 22
+.\deploy\Build-Package.ps1 -Version 1.5.1           # tests, Rebuild Release, zip + separate .vsix and .docx in dist\
+.\deploy\Build-Package.ps1 -Version 1.5.1 -Install  # ... and install into this machine's SSMS 22
 ```
 
 Raise the version for every release: VSIXInstaller won't install the same version over itself. By hand:

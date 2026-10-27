@@ -46,6 +46,13 @@ thường gặp và định dạng SQL mà không bao giờ làm đổi nghĩa c
     **Ctrl+K, Ctrl+Y**. Sau khi định dạng, SqlSense so lại từng token với bản gốc. Nếu có gì khác ngoài khoảng trắng và
     hoa/thường thì không áp dụng. Nhập được style của SQL Prompt.
 
+-   :material-unfold-less-horizontal: **Thu gọn code theo cấp**
+
+    ---
+
+    Thu gọn `BEGIN … END`, `CASE`, câu lệnh nhiều dòng, ngoặc, comment và khối `-- #region`. Như VS Code:
+    **Ctrl+K, Ctrl+1…7** thu gọn theo cấp, **Ctrl+K, Ctrl+0** thu gọn tất cả, **Ctrl+K, Ctrl+J** mở hết.
+
 -   :material-table-arrow-right: **Xuất kết quả**
 
     ---
