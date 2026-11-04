@@ -40,6 +40,11 @@ namespace SqlSense.Core.Analysis
         DatabaseFile,
         /// <summary>An existing index after ALTER/DROP INDEX.</summary>
         Index,
+        /// <summary>
+        /// A constraint or trigger of the table in <see cref="CompletionContext.InsertTarget"/> (ALTER TABLE … DROP
+        /// CONSTRAINT, CHECK|NOCHECK CONSTRAINT, ENABLE|DISABLE TRIGGER); which one in ClauseKeyword.
+        /// </summary>
+        TableMember,
     }
 
     public sealed class CompletionContext
@@ -198,7 +203,7 @@ namespace SqlSense.Core.Analysis
             }
 
             ctx.Kind = Classify(sig, lastIdx, stmt.Start, ctx);
-            if (ctx.Kind == ContextKind.InsertColumns && ctx.ClauseKeyword == "INDEX" && ctx.InsertTarget != null)
+            if ((ctx.Kind == ContextKind.InsertColumns && ctx.ClauseKeyword == "INDEX" || ctx.Kind == ContextKind.TableMember) && ctx.InsertTarget != null)
                 Resolve(new List<TableRef> { ctx.InsertTarget }, ctx.Ctes, ctx.LocalTables, schema);
             if (ctx.ScriptVerb != null)
             {
@@ -407,6 +412,8 @@ namespace SqlSense.Core.Analysis
             if (security != null) return security.Value;
             var objectName = ClassifyObjectName(sig, p, ctx);
             if (objectName != null) return objectName.Value;
+            var tableDefinition = ClassifyTableDefinition(sig, p, stmtStart, ctx);
+            if (tableDefinition != null) return tableDefinition.Value;
 
             // Walk back to the governing keyword at this nesting depth.
             var depth = 0;

@@ -16,7 +16,10 @@ namespace SqlSense.Core.Completion
         public string Description { get; }
     }
 
-    /// <summary>Options offered inside BACKUP, RESTORE, DBCC, ALTER DATABASE, ALTER INDEX and UPDATE STATISTICS.</summary>
+    /// <summary>
+    /// Options offered inside BACKUP, RESTORE, DBCC, ALTER DATABASE, ALTER INDEX, UPDATE STATISTICS, and column and
+    /// constraint definitions of CREATE TABLE / ALTER TABLE.
+    /// </summary>
     public static class StatementOptions
     {
         private static StatementOption O(string text, string description) => new StatementOption(text, description);
@@ -189,6 +192,147 @@ namespace SqlSense.Core.Completion
                 O("WITH FULLSCAN, PERSIST_SAMPLE_PERCENT = ON", "keep the full scan rate for automatic updates"),
                 O("WITH NORECOMPUTE", "turn off automatic updates for these statistics"),
             },
+
+            // ---- CREATE TABLE / ALTER TABLE: columns and constraints ----
+            ["TABLE ELEMENT"] = new[]
+            {
+                O("CONSTRAINT", "named table constraint: CONSTRAINT name PRIMARY KEY | UNIQUE | FOREIGN KEY | CHECK"),
+                O("PRIMARY KEY (|)", "primary key on one or more columns"),
+                O("UNIQUE (|)", "unique constraint on one or more columns"),
+                O("FOREIGN KEY (|) REFERENCES", "foreign key on one or more columns"),
+                O("CHECK (|)", "check constraint"),
+                O("INDEX", "inline index: INDEX name [NONCLUSTERED] (columns)"),
+            },
+            ["COLUMN"] = new[]
+            {
+                O("NOT NULL", "the column requires a value"),
+                O("NULL", "the column allows NULL"),
+                O("IDENTITY(1, 1)", "values generated from seed 1, increment 1"),
+                O("PRIMARY KEY", "the column is the primary key"),
+                O("UNIQUE", "values must be unique"),
+                O("DEFAULT", "value used when an INSERT leaves the column out"),
+                O("CONSTRAINT", "named constraint on the column"),
+                O("REFERENCES", "foreign key to another table"),
+                O("CHECK (|)", "condition every row must meet"),
+                O("COLLATE", "collation of a character column"),
+                O("SPARSE", "optimized storage for mostly-NULL values"),
+                O("ROWGUIDCOL", "the table's row GUID column (uniqueidentifier)"),
+            },
+            ["TABLE CONSTRAINT"] = new[]
+            {
+                O("PRIMARY KEY (|)", "primary key (clustered by default)"),
+                O("PRIMARY KEY CLUSTERED (|)", "clustered primary key"),
+                O("PRIMARY KEY NONCLUSTERED (|)", "nonclustered primary key"),
+                O("UNIQUE (|)", "unique constraint"),
+                O("FOREIGN KEY (|) REFERENCES", "foreign key"),
+                O("CHECK (|)", "check constraint"),
+            },
+            ["ALTER TABLE CONSTRAINT"] = new[]
+            {
+                O("PRIMARY KEY (|)", "primary key (clustered by default)"),
+                O("PRIMARY KEY CLUSTERED (|)", "clustered primary key"),
+                O("PRIMARY KEY NONCLUSTERED (|)", "nonclustered primary key"),
+                O("UNIQUE (|)", "unique constraint"),
+                O("FOREIGN KEY (|) REFERENCES", "foreign key"),
+                O("CHECK (|)", "check constraint"),
+                O("DEFAULT | FOR", "default constraint: DEFAULT value FOR column"),
+            },
+            ["COLUMN CONSTRAINT"] = new[]
+            {
+                O("PRIMARY KEY", "the column is the primary key"),
+                O("UNIQUE", "values must be unique"),
+                O("DEFAULT", "default value"),
+                O("REFERENCES", "foreign key to another table"),
+                O("FOREIGN KEY REFERENCES", "foreign key to another table"),
+                O("CHECK (|)", "check constraint"),
+            },
+            ["PRIMARY"] = new[]
+            {
+                O("KEY", "primary key (clustered by default)"),
+                O("KEY CLUSTERED", "clustered primary key"),
+                O("KEY NONCLUSTERED", "nonclustered primary key"),
+            },
+            ["FOREIGN"] = new[] { O("KEY", "foreign key") },
+            ["FOREIGN KEY END"] = new[] { O("REFERENCES", "the referenced table and columns") },
+            ["DEFAULT END"] = new[] { O("FOR", "the column the default applies to") },
+            ["KEY TYPE"] = new[]
+            {
+                O("CLUSTERED", "clustered index: the table's rows are stored in key order"),
+                O("NONCLUSTERED", "separate index structure"),
+            },
+            ["NOT"] = new[]
+            {
+                O("NULL", "the column requires a value"),
+                O("FOR REPLICATION", "not enforced for replication agents"),
+            },
+            ["REFERENCES"] = new[]
+            {
+                O("ON DELETE CASCADE", "deleting the referenced row deletes these rows"),
+                O("ON DELETE SET NULL", "deleting the referenced row sets the column to NULL"),
+                O("ON DELETE NO ACTION", "deleting a referenced row fails (default)"),
+                O("ON UPDATE CASCADE", "changing the referenced key updates these rows"),
+                O("NOT FOR REPLICATION", "not enforced for replication agents"),
+            },
+            ["REFERENCES ON"] = new[]
+            {
+                O("DELETE", "action when the referenced row is deleted"),
+                O("UPDATE", "action when the referenced key changes"),
+            },
+            ["REFERENTIAL ACTION"] = new[]
+            {
+                O("CASCADE", "apply the change to these rows too"),
+                O("NO ACTION", "fail (default)"),
+                O("SET NULL", "set the column to NULL"),
+                O("SET DEFAULT", "set the column to its default"),
+            },
+            ["SET ACTION"] = new[]
+            {
+                O("NULL", "set the column to NULL"),
+                O("DEFAULT", "set the column to its default"),
+            },
+            ["NO"] = new[] { O("ACTION", "fail (default)") },
+            ["ALTER TABLE"] = new[]
+            {
+                O("ADD", "add columns or constraints"),
+                O("ADD CONSTRAINT", "add a named constraint"),
+                O("ALTER COLUMN", "change a column's type or nullability"),
+                O("DROP COLUMN", "remove columns"),
+                O("DROP CONSTRAINT", "remove a constraint"),
+                O("WITH CHECK ADD CONSTRAINT", "add a constraint, checking existing rows"),
+                O("WITH NOCHECK ADD CONSTRAINT", "add a constraint without checking existing rows"),
+                O("NOCHECK CONSTRAINT", "disable constraints"),
+                O("WITH CHECK CHECK CONSTRAINT", "enable constraints and check existing rows (trusted)"),
+                O("ENABLE TRIGGER", "enable triggers"),
+                O("DISABLE TRIGGER", "disable triggers"),
+                O("REBUILD", "rebuild the table (heap or clustered index)"),
+                O("SWITCH TO", "move the data to another table or partition"),
+            },
+            ["ALTER TABLE WITH"] = new[]
+            {
+                O("CHECK", "check existing rows"),
+                O("NOCHECK", "don't check existing rows"),
+            },
+            ["ALTER TABLE WITH CHECK"] = new[]
+            {
+                O("ADD CONSTRAINT", "add a named constraint"),
+                O("CHECK CONSTRAINT", "enable constraints"),
+            },
+            ["ALTER TABLE ALTER"] = new[] { O("COLUMN", "change a column's type or nullability") },
+            ["ALTER TABLE DROP"] = new[]
+            {
+                O("COLUMN", "remove columns"),
+                O("CONSTRAINT", "remove a constraint"),
+                O("COLUMN IF EXISTS", "remove columns that exist"),
+                O("CONSTRAINT IF EXISTS", "remove a constraint if it exists"),
+            },
+            ["ALTER COLUMN"] = new[]
+            {
+                O("NOT NULL", "the column requires a value"),
+                O("NULL", "the column allows NULL"),
+                O("COLLATE", "collation of a character column"),
+            },
+            ["CONSTRAINT"] = new[] { O("CONSTRAINT", "constraints of the table") },
+            ["TRIGGER"] = new[] { O("TRIGGER", "triggers of the table") },
         };
     }
 }

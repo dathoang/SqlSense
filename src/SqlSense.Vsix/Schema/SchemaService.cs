@@ -22,6 +22,9 @@ namespace SqlSense.Schema
             public Task Loading;
             public string LastError;
 
+            /// <summary>Server and login of a database entry (null for linked servers), to borrow server-level lists from.</summary>
+            public string ServerKey;
+
             /// <summary>Reload on the next use (or right after the running load), keeping the current snapshot meanwhile.</summary>
             public bool ForceReload;
         }
@@ -34,7 +37,9 @@ namespace SqlSense.Schema
 
         /// <summary>
         /// Schema for the active window's connection, switched to <paramref name="databaseOverride"/>
-        /// when the script has a USE statement. Returns null if not loaded yet or unavailable.
+        /// when the script has a USE statement. While that database loads for the first time, a
+        /// <see cref="DatabaseSchema.ServerOnly"/> stand-in borrowed from another database already cached on the same
+        /// server (so the database list doesn't wait); null if there is none or the connection is unavailable.
         /// </summary>
         public static DatabaseSchema Get(SsmsConnectionInfo conn, string databaseOverride)
         {
@@ -47,12 +52,40 @@ namespace SqlSense.Schema
 
             var connectionString = ConnectionStringFor(conn, databaseOverride, out var database);
             var key = KeyFor(conn, database);
-            return GetCached(key, conn.Server + "/" + database, () =>
+            var serverKey = ServerKeyFor(conn);
+            Cache.GetOrAdd(key, _ => new Entry { ServerKey = serverKey });
+            Func<string, string, DatabaseSchema> resolver = (server, db) => server == null ? Get(conn, db) : GetLinked(conn, server, db);
+            var loaded = GetCached(key, conn.Server + "/" + database, () =>
             {
                 var schema = SchemaLoader.Load(connectionString, SqlSenseSettings.Current.IncludeSystemObjects);
-                schema.Resolver = (server, db) => server == null ? Get(conn, db) : GetLinked(conn, server, db);
+                schema.Resolver = resolver;
                 return schema;
             });
+            if (loaded != null) return loaded;
+
+            var source = ServerSnapshot(serverKey);
+            if (source == null) return null;
+            var standIn = DatabaseSchema.ServerOnlyFrom(source, database);
+            standIn.Resolver = resolver;
+            return standIn;
+        }
+
+        /// <summary>The most recently loaded database snapshot cached for this server and login, or null.</summary>
+        private static DatabaseSchema ServerSnapshot(string serverKey)
+        {
+            DatabaseSchema best = null;
+            var bestLoaded = DateTime.MinValue;
+            foreach (var entry in Cache.Values)
+            {
+                if (entry.ServerKey != serverKey) continue;
+                lock (entry)
+                {
+                    if (entry.Schema == null || entry.LoadedUtc <= bestLoaded) continue;
+                    best = entry.Schema;
+                    bestLoaded = entry.LoadedUtc;
+                }
+            }
+            return best;
         }
 
         /// <summary>
@@ -76,6 +109,9 @@ namespace SqlSense.Schema
 
         private static string KeyFor(SsmsConnectionInfo conn, string database) =>
             $"{conn.Server}|{database}|{conn.User}|{conn.AuthenticationType}".ToLowerInvariant();
+
+        private static string ServerKeyFor(SsmsConnectionInfo conn) =>
+            $"{conn.Server}|{conn.User}|{conn.AuthenticationType}".ToLowerInvariant();
 
         private static DatabaseSchema GetCached(string key, string label, Func<DatabaseSchema> load)
         {

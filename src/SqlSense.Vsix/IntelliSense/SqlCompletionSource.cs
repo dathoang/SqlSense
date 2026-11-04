@@ -4,6 +4,7 @@ using System.Linq;
 using System.Windows.Media;
 using Microsoft.VisualStudio.Language.Intellisense;
 using Microsoft.VisualStudio.Text;
+using SqlSense.Core.Analysis;
 using SqlSense.Core.Completion;
 using SqlSense.Diagnostics;
 using SqlSense.Editor;
@@ -41,15 +42,17 @@ namespace SqlSense.IntelliSense
 
                 var conn = SsmsConnection.GetActive();
                 var schema = SchemaService.Get(conn, SqlDocument.DatabaseFromUse(text, caret));
-                // Still loading: SqlCommandFilter reopens the list once it arrives.
-                if (schema == null && conn != null && conn.Unsupported == null)
-                    session.Properties[SqlCommandFilter.WithoutSchemaMarker] = true;
                 var engine = new CompletionEngine(settings.Completion, SnippetCache.Get(settings))
                 {
                     NewLine = SqlDocument.LineBreak(snapshot),
                     FilterByPrefix = false,
                 };
                 var result = engine.GetCompletions(text, caret, schema);
+                // Still loading: SqlCommandFilter reopens the list once it arrives. A server-only stand-in already
+                // has the whole database list, so USE/database lists stay as they are.
+                if (conn != null && conn.Unsupported == null
+                    && (schema == null || schema.ServerOnly && result.Context.Kind != ContextKind.Database))
+                    session.Properties[SqlCommandFilter.WithoutSchemaMarker] = true;
                 // Another database or linked server named in the text is loading: same reopen as above.
                 if (result.SchemaPending) session.Properties[SqlCommandFilter.WithoutSchemaMarker] = true;
                 Log.Trace($"augment kind={result.Context.Kind} prefix='{result.Context.Prefix}' prefixStart={result.Context.PrefixStart} caret={caret} " +

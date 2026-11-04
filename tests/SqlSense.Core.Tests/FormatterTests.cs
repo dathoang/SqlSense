@@ -166,6 +166,7 @@ namespace SqlSense.Core.Tests
         [InlineData("create table dbo.T (Id int not null constraint PK_T primary key clustered, Ref int null references dbo.U (Id), Code char(2) not null default 'x' check (Code <> ''), constraint UQ_T unique (Code, Ref), constraint FK_T foreign key (Ref, Id) references dbo.U (A, B), index IX_T nonclustered (Ref))")]
         [InlineData("if @@ROWCOUNT = 0 and @@trancount > 0 select case x when 1 then 'a' when 2 then 'b' end, case when y = 1 then 'c' else 'd' end from t")]
         [InlineData("select a /* one\n     two\n     three */ from t\ngo\n\n\nselect 1")]
+        [InlineData("alter table dbo.T alter column Code varchar(10) not null; alter table dbo.T drop constraint DF_T, column Old; alter table dbo.T drop column if exists A, B")]
         public void Formatting_never_changes_tokens_and_is_idempotent(string sql)
         {
             foreach (var f in new[] { _f, new SqlFormatter(PromptLike()) })

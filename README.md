@@ -24,8 +24,9 @@ binaries are used. The parser is Microsoft's open-source `Microsoft.SqlServer.Tr
 - Knows CTEs, temp tables (`CREATE TABLE #t`, `SELECT … INTO #t`), table variables, derived tables, and `UPDATE a … FROM t a`.
 - Fuzzy matching: `soh` finds `SalesOrderHeader`; prefix matches rank first.
 - Metadata loads in the background per server/database/login and is cached (30 min by default); `USE db` switches the
-  database used for suggestions. The status bar shows an animated "loading metadata for SERVER/Db…" while a first load
-  runs, then the object count and time, or the error (option: General › Show metadata loading in the status bar).
+  database used for suggestions; each database keeps its own cache entry, and while a database loads for the first time
+  the database list, linked servers and logins come from another database cached on the same server. The status bar
+  shows an animated "loading metadata for SERVER/Db…" while a first load runs, then the object count and time, or the error (option: General › Show metadata loading in the status bar).
 - Refresh: Refresh Suggestions (Ctrl+Shift+D) reloads the window's database right away while suggestions keep the old
   metadata; Refresh All Suggestions marks every cached database for reload. Executing a script that creates, alters or
   drops objects (or `SELECT … INTO`, `sp_rename`) reloads the affected databases automatically (option: General ›
@@ -47,6 +48,11 @@ binaries are used. The parser is Microsoft's open-source `Microsoft.SqlServer.Tr
   from msdb after `RESTORE … FROM`, `WITH` options), `DBCC` commands and their arguments (databases, tables, files),
   `ALTER DATABASE … SET` options and `MODIFY FILE`, `ALTER|DROP INDEX` (indexes with their table, `REBUILD`/`REORGANIZE`),
   `CREATE INDEX … ON t (` columns, `UPDATE STATISTICS`. Snippets `bakd`, `bakl`, `rsdb`, `chkdb`.
+- Table definitions (`CREATE TABLE`, `DECLARE @t TABLE`, `CREATE TYPE … AS TABLE`, `ALTER TABLE … ADD`): data types
+  after a column name, column options after its type (`NOT NULL`, `IDENTITY(1, 1)`, `PRIMARY KEY`, `DEFAULT`,
+  `REFERENCES` …), table constraints, referenced tables and columns, `ON DELETE|UPDATE` actions, and the table's own
+  columns in `PRIMARY KEY|UNIQUE|FOREIGN KEY (`. `ALTER TABLE t ` lists its actions; `ALTER|DROP COLUMN` lists the
+  table's columns, `DROP CONSTRAINT` its keys, `NOCHECK CONSTRAINT` / `DISABLE TRIGGER` its foreign keys / triggers.
 
 **Hover info**
 - Resting the mouse on a name shows what it is: tables and views (columns, types, foreign keys), columns, procedure and

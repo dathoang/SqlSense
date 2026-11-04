@@ -1,5 +1,6 @@
 using System.Linq;
 using SqlSense.Core.Completion;
+using SqlSense.Core.Schema;
 using Xunit;
 
 namespace SqlSense.Core.Tests
@@ -61,6 +62,38 @@ namespace SqlSense.Core.Tests
             Assert.True(r.SchemaPending);
             Assert.False(Complete("SELECT * FROM Archive.|").SchemaPending);
             Assert.False(Complete("SELECT * FROM Nowhere.|").SchemaPending);
+        }
+
+        [Fact]
+        public void A_server_only_stand_in_lists_databases_while_the_used_database_loads()
+        {
+            var source = TestSchema.WithOtherDatabases();
+            source.Principals.Add(new DbPrincipal("appLogin", DbPrincipalKind.Login));
+            source.Principals.Add(new DbPrincipal("appUser", DbPrincipalKind.User));
+            var standIn = DatabaseSchema.ServerOnlyFrom(source, "Archive");
+
+            Assert.True(standIn.ServerOnly);
+            Assert.Equal("Archive", standIn.DatabaseName);
+            Assert.Empty(standIn.Objects);
+            Assert.Equal(new[] { "Shop", "master", "Pending" }, standIn.OtherDatabases);
+            Assert.Equal(new[] { "REMOTE" }, standIn.LinkedServers);
+            Assert.All(standIn.Principals, p => Assert.True(p.IsServerLevel));
+            Assert.Contains(standIn.Principals, p => p.Name == "appLogin");
+            Assert.DoesNotContain(standIn.Principals, p => p.Name == "appUser");
+
+            var caret = "USE ".Length;
+            var names = _engine.GetCompletions("USE ", caret, standIn).Items.Select(i => i.DisplayText).ToList();
+            Assert.Contains("Shop", names);
+            Assert.Contains("Archive", names);
+        }
+
+        [Fact]
+        public void A_database_resolved_to_a_stand_in_is_still_pending()
+        {
+            var source = TestSchema.WithOtherDatabases();
+            var current = source.Resolver;
+            source.Resolver = (server, db) => server == null && db == "Pending" ? DatabaseSchema.ServerOnlyFrom(source, db) : current(server, db);
+            Assert.True(_engine.GetCompletions("SELECT * FROM Pending.", 22, source).SchemaPending);
         }
 
         [Fact]

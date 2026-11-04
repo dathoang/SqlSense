@@ -163,13 +163,13 @@ namespace SqlSense.Core.Analysis
                 case "IF":
                     return DropObjectWords.Contains(prevU);
                 case "ALTER":
-                    return prevU == "OR";
+                    return prevU == "OR" || IsAlterTableAction(sig, segStart, i);
                 case "OPEN":
                 case "CLOSE":
                     return prevU == "=";
                 case "DROP":
-                    // ALTER [SERVER] ROLE r DROP MEMBER m
-                    return first == "ALTER" && next != null && next.Is("MEMBER");
+                    // ALTER [SERVER] ROLE r DROP MEMBER m, ALTER TABLE t DROP COLUMN|CONSTRAINT …
+                    return first == "ALTER" && next != null && next.Is("MEMBER") || IsAlterTableAction(sig, segStart, i);
                 case "RETURN":
                 case "DECLARE":
                 case "CREATE":
@@ -177,6 +177,15 @@ namespace SqlSense.Core.Analysis
                 default:
                     return false;
             }
+        }
+
+        /// <summary>ALTER TABLE t ALTER COLUMN …, ALTER TABLE t DROP …: sig[i] directly follows the table name.</summary>
+        private static bool IsAlterTableAction(List<SqlToken> sig, int segStart, int i)
+        {
+            if (!sig[segStart].Is("ALTER") || segStart + 2 >= i || !sig[segStart + 1].Is("TABLE")) return false;
+            for (var k = segStart + 2; k < i; k++)
+                if (!((k - segStart) % 2 == 0 ? sig[k].IsName : sig[k].Text == ".")) return false;
+            return (i - segStart) % 2 == 1;
         }
 
         private static bool ContainsWord(List<SqlToken> sig, int from, int to, string upper)

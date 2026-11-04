@@ -257,9 +257,34 @@ RESTORE DATABASE Shop FROM DISK = N'…' WITH ⇥  -- RECOVERY, NORECOVERY, REPL
   `ALTER INDEX … ON dbo.Bang ` → `REBUILD`, `REBUILD WITH (ONLINE = ON)`, `REORGANIZE`, `DISABLE` …;
   `CREATE INDEX ix ON ` → bảng, `(` và `INCLUDE (` → cột của bảng đó.
 * `UPDATE STATISTICS ` → bảng, sau tên bảng → `WITH FULLSCAN`, `WITH SAMPLE 25 PERCENT` …
-* Snippet: `bakd` (backup full), `bakl` (backup log), `rsdb` (restore), `chkdb` (DBCC CHECKDB) — xem 2.9.
+* Snippet: `bakd` (backup full), `bakl` (backup log), `rsdb` (restore), `chkdb` (DBCC CHECKDB) — xem 2.10.
 
-### 2.9 Snippet
+### 2.9 Tạo và sửa bảng
+
+```sql
+CREATE TABLE dbo.Orders (
+    OrderID int ⇥                      -- sau tên cột: kiểu dữ liệu (int, nvarchar, decimal …)
+    OrderID int ⇥                      -- sau kiểu: NOT NULL, NULL, IDENTITY(1, 1), PRIMARY KEY, DEFAULT, REFERENCES …
+    CustomerID int REFERENCES ⇥        -- bảng; REFERENCES dbo.Customers ( → cột của bảng đó
+    ⇥                                   -- đầu dòng: CONSTRAINT, PRIMARY KEY (), UNIQUE (), FOREIGN KEY () REFERENCES, CHECK ()
+    CONSTRAINT PK_Orders ⇥             -- PRIMARY KEY CLUSTERED (), UNIQUE (), FOREIGN KEY () REFERENCES …
+    CONSTRAINT PK_Orders PRIMARY KEY (⇥ -- các cột đã khai báo ở trên
+)
+ALTER TABLE dbo.Customers ⇥            -- ADD, ALTER COLUMN, DROP COLUMN, DROP CONSTRAINT, NOCHECK CONSTRAINT, ENABLE TRIGGER …
+ALTER TABLE dbo.Customers ALTER COLUMN ⇥     -- cột của bảng; sau tên cột → kiểu; sau kiểu → NULL / NOT NULL
+ALTER TABLE dbo.Customers DROP CONSTRAINT ⇥  -- khoá chính, unique, khoá ngoại của bảng
+```
+
+* Áp dụng cho `CREATE TABLE`, `DECLARE @t TABLE (…)`, `CREATE TYPE … AS TABLE (…)`, `RETURNS @t TABLE (…)` và
+  `ALTER TABLE … ADD`.
+* Khoá ngoại: `… REFERENCES dbo.Bang (Cot) ` gợi ý `ON DELETE CASCADE`, `ON DELETE SET NULL`, `ON UPDATE CASCADE` …;
+  `ON ` → `DELETE` / `UPDATE`; `ON DELETE ` → `CASCADE`, `NO ACTION`, `SET NULL`, `SET DEFAULT`.
+* `ALTER TABLE … ADD CONSTRAINT DF_x DEFAULT 0 ` gợi ý `FOR`, rồi cột của bảng.
+* `NOCHECK CONSTRAINT ` / `CHECK CONSTRAINT ` gợi ý `ALL` và khoá ngoại; `ENABLE TRIGGER ` / `DISABLE TRIGGER ` gợi ý `ALL`
+  và trigger của bảng. Ràng buộc CHECK và DEFAULT có sẵn chưa nằm trong danh sách gợi ý.
+* Trong ngoặc của kiểu (`decimal(18, `), `IDENTITY(` và sau `CONSTRAINT ` (tên mới) không hiện gợi ý.
+
+### 2.10 Snippet
 
 Gõ phím tắt rồi nhấn **Tab**:
 
@@ -291,12 +316,14 @@ WHERE TableName = N'$CURSOR$'
 ORDER BY ChangedAt DESC;
 ```
 
-### 2.10 Khác
+### 2.11 Khác
 
 * Gõ `(`, `[`, `'` tự thêm dấu đóng; gõ dấu đóng sẽ đè lên dấu có sẵn.
 * Chọn gợi ý khi con trỏ đang ở giữa một từ chỉ chèn tại con trỏ (thay phần đã gõ), phần chữ phía sau con trỏ được giữ nguyên.
 * `DECLARE @x ` / `CAST(… AS ` gợi ý kiểu dữ liệu; `USE ` gợi ý database; `@` gợi ý biến đã khai báo.
-* `USE TenDb` trong script đổi database dùng cho gợi ý ở các câu bên dưới.
+* `USE TenDb` trong script đổi database dùng cho gợi ý ở các câu bên dưới. Metadata của mỗi database được cache riêng
+  (mặc định 30 phút), nên quay lại database đã dùng thì có gợi ý ngay. Database chưa tải lần nào: danh sách tên database,
+  linked server, login vẫn hiện ngay (lấy từ database đã cache trên cùng server); bảng, cột hiện khi tải xong.
 
 ---
 

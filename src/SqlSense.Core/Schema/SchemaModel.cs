@@ -305,6 +305,12 @@ namespace SqlSense.Core.Schema
         public string Server { get; set; }
 
         /// <summary>
+        /// Stand-in while this database loads: only server-level lists (databases, linked servers, logins and server
+        /// roles) borrowed from another database on the same server; no schemas or objects yet.
+        /// </summary>
+        public bool ServerOnly { get; set; }
+
+        /// <summary>
         /// Supplies another database's snapshot: (null, db) for this server, (linked server, null) for the list of
         /// its databases, (linked server, db) for one of them. Returns null while it loads or when unavailable;
         /// it must never block.
@@ -325,7 +331,7 @@ namespace SqlSense.Core.Schema
                 if (string.IsNullOrEmpty(database) || Ci.Equals(database, DatabaseName)) return this;
                 if (!IsDatabase(database) && FindDatabase(database) == null) return null;
                 var other = Resolver?.Invoke(null, database);
-                pending = other == null && Resolver != null;
+                pending = (other == null || other.ServerOnly) && Resolver != null;
                 return other;
             }
             if (!IsLinkedServer(server)) return null;
@@ -374,6 +380,21 @@ namespace SqlSense.Core.Schema
             return candidates.FirstOrDefault(o => Ci.Equals(o.Schema, DefaultSchema))
                    ?? candidates.FirstOrDefault(o => Ci.Equals(o.Schema, "dbo"))
                    ?? candidates[0];
+        }
+
+        /// <summary>
+        /// A <see cref="ServerOnly"/> stand-in for <paramref name="database"/> built from <paramref name="source"/>, another
+        /// database's snapshot on the same server: the databases, linked servers and server principals carry over.
+        /// </summary>
+        public static DatabaseSchema ServerOnlyFrom(DatabaseSchema source, string database)
+        {
+            var schema = new DatabaseSchema(database) { ServerOnly = true, Resolver = source.Resolver };
+            schema.OtherDatabases.AddRange(new[] { source.DatabaseName }.Concat(source.OtherDatabases)
+                .Where(d => !Ci.Equals(d, database)).Distinct(Ci));
+            schema.Databases.AddRange(source.Databases);
+            schema.LinkedServers.AddRange(source.LinkedServers);
+            schema.Principals.AddRange(source.Principals.Where(p => p.IsServerLevel));
+            return schema;
         }
 
         public bool IsSchema(string name) => Schemas.Any(s => Ci.Equals(s, name));

@@ -96,6 +96,9 @@ namespace SqlSense.Core.Completion
                             foreach (var f in schema.Files)
                                 items.Add(new CompletionItem(f.Name, "N'" + f.Name.Replace("'", "''") + "'", CompletionItemKind.File, f.Describe()));
                         break;
+                    case ContextKind.TableMember:
+                        AddTableMembers(ctx, schema, items);
+                        break;
                     case ContextKind.Index:
                         AddIndexes(ctx, schema, items);
                         break;
@@ -364,7 +367,11 @@ namespace SqlSense.Core.Completion
                     foreach (var c in target.Object.Columns)
                         items.Add(new CompletionItem(c.Name, Quote(c.Name), CompletionItemKind.Column, c.Describe()) { Priority = c.Ordinal });
                 else
-                    foreach (var c in target.ColumnNames) items.Add(new CompletionItem(c, Quote(c), CompletionItemKind.Column, target.Name));
+                {
+                    var ordinal = 0;
+                    foreach (var c in target.ColumnNames)
+                        items.Add(new CompletionItem(c, Quote(c), CompletionItemKind.Column, target.Name) { Priority = ordinal++ });
+                }
                 return;
             }
             var cols = target.Object != null
@@ -610,6 +617,32 @@ namespace SqlSense.Core.Completion
                     items.Add(new CompletionItem(ix.Name, Quote(ix.Name) + " " + Kw("ON") + " " + table, CompletionItemKind.Index,
                         ix.Describe() + " on " + o.QualifiedName) { Priority = ix.IsPrimaryKey ? 11 : 10 });
                 }
+        }
+
+        /// <summary>
+        /// ALTER TABLE t DROP CONSTRAINT | (foreign keys, primary key and unique constraints), CHECK|NOCHECK CONSTRAINT |
+        /// (ALL and foreign keys), ENABLE|DISABLE TRIGGER | (ALL and the table's triggers). Check and default
+        /// constraints aren't in the metadata.
+        /// </summary>
+        private void AddTableMembers(CompletionContext ctx, DatabaseSchema schema, List<CompletionItem> items)
+        {
+            var obj = ctx.InsertTarget?.Object;
+            if (ctx.ClauseKeyword != "CONSTRAINT")
+                items.Add(new CompletionItem(Kw("ALL"), Kw("ALL"), CompletionItemKind.Keyword,
+                    ctx.ClauseKeyword == "TRIGGER" ? "every trigger of the table" : "every constraint of the table") { Priority = -1 });
+            if (obj == null || schema == null) return;
+            if (ctx.ClauseKeyword == "TRIGGER")
+            {
+                foreach (var tr in schema.Objects.Where(o => o.Kind == DbObjectKind.Trigger && Ci.Equals(o.Parent, obj.QualifiedName)))
+                    items.Add(new CompletionItem(tr.Name, Quote(tr.Name), CompletionItemKind.Trigger, "trigger on " + obj.QualifiedName));
+                return;
+            }
+            foreach (var fk in schema.ForeignKeys.Where(f => Ci.Equals(f.FromSchema, obj.Schema) && Ci.Equals(f.FromTable, obj.Name)))
+                items.Add(new CompletionItem(fk.Name, Quote(fk.Name), CompletionItemKind.Index,
+                    $"foreign key ({string.Join(", ", fk.FromColumns)}) → {fk.ToSchema}.{fk.ToTable}"));
+            if (ctx.ClauseKeyword == "CONSTRAINT")
+                foreach (var ix in obj.Indexes.Where(i => i.IsPrimaryKey || i.IsUnique))
+                    items.Add(new CompletionItem(ix.Name, Quote(ix.Name), CompletionItemKind.Index, ix.Describe()));
         }
 
         private static string DescribeDatabase(DatabaseSchema schema, string name)
