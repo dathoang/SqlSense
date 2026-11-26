@@ -77,6 +77,12 @@ namespace SqlSense.Core.Analysis
         /// </summary>
         public (string Qualifier, string Column)? ComparedColumn { get; set; }
 
+        /// <summary>"FROM dbo.Customers AS |": the table being aliased ("Customers"); null for other alias positions.</summary>
+        public string AliasTarget { get; set; }
+
+        /// <summary>Token index where the aliased table's name starts (its own <see cref="TableRef.TokenIndex"/>).</summary>
+        public int AliasTargetTokenIndex { get; set; } = -1;
+
         /// <summary>"WHERE", "GROUP BY", "ORDER BY" or "HAVING" when the caret is in that clause of a SELECT.</summary>
         public string SelectClause { get; set; }
 
@@ -524,7 +530,11 @@ namespace SqlSense.Core.Analysis
                         if (stmtStart < sig.Count && (sig[stmtStart].Is("CREATE") || sig[stmtStart].Is("ALTER"))
                             && StatementAnalysis.FindWordAtDepth(sig, stmtStart, kwIdx, "SELECT") < 0)
                             return ContextKind.Keyword;
-                        if (kwIdx > 0 && (sig[kwIdx - 1].IsName || sig[kwIdx - 1].Text == ")")) return ContextKind.AliasName;
+                        if (kwIdx > 0 && (sig[kwIdx - 1].IsName || sig[kwIdx - 1].Text == ")"))
+                        {
+                            SetAliasTarget(sig, kwIdx, stmtStart, ctx);
+                            return ContextKind.AliasName;
+                        }
                         return ContextKind.Keyword;
                     }
                     return ContextKind.Expression;
@@ -544,7 +554,61 @@ namespace SqlSense.Core.Analysis
             }
         }
 
-        private static readonly HashSet<string> Arithmetic = new HashSet<string> { "+", "-", "*", "/", "%" };
+        private static readonly HashSet<string> TableSourceWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "FROM", "JOIN", "INTO", "USING", "APPLY",
+        };
+
+        /// <summary>
+        /// "FROM dbo.Customers AS |", "JOIN sales.fn_Orders(1) AS |", "FROM a, b AS |", "MERGE INTO t AS |": the table (or
+        /// table function) being aliased, so its generated alias can be suggested. Column aliases and derived tables
+        /// get nothing.
+        /// </summary>
+        private static void SetAliasTarget(List<SqlToken> sig, int asIdx, int stmtStart, CompletionContext ctx)
+        {
+            var nameEnd = asIdx - 1;
+            if (sig[nameEnd].Text == ")")
+            {
+                // Table-valued function call: the name before its "(".
+                var depth = 0;
+                var open = -1;
+                for (var k = nameEnd; k >= stmtStart; k--)
+                {
+                    if (sig[k].Text == ")") depth++;
+                    else if (sig[k].Text == "(" && --depth == 0) { open = k; break; }
+                }
+                if (open <= 0 || !sig[open - 1].IsName) return;
+                nameEnd = open - 1;
+            }
+            var nameStart = nameEnd;
+            while (nameStart - 2 >= stmtStart && sig[nameStart - 1].Text == "." && (sig[nameStart - 2].IsName || sig[nameStart - 2].Text == "."))
+                nameStart -= 2;
+            var before = nameStart - 1;
+            if (before < stmtStart) return;
+
+            var isTable = sig[before].IsWord && TableSourceWords.Contains(sig[before].Text);
+            if (!isTable && sig[before].Text == ",")
+            {
+                // "FROM a, b AS |": the comma belongs to the FROM clause.
+                var depth = 0;
+                for (var k = before - 1; k >= stmtStart; k--)
+                {
+                    var t = sig[k];
+                    if (t.Text == ")") depth++;
+                    else if (t.Text == "(") { if (depth-- == 0) break; }
+                    else if (depth == 0 && t.IsWord && (t.Is("FROM") || ExpressionKeywords.Contains(t.Text)))
+                    {
+                        isTable = t.Is("FROM");
+                        break;
+                    }
+                }
+            }
+            if (!isTable) return;
+            ctx.AliasTarget = sig[nameEnd].Unquoted;
+            ctx.AliasTargetTokenIndex = nameStart;
+        }
+
+        private static readonly HashSet<string> Arithmetic =new HashSet<string> { "+", "-", "*", "/", "%" };
 
         private static void CollectSelectList(CompletionContext ctx, List<SqlToken> sig, List<SqlToken> allSig, int p, int stmtStart, string text)
         {

@@ -26,19 +26,49 @@ namespace SqlSense.Core.Tests
             return s;
         }
 
-        // ---------------- AS before aliases ----------------
+        // ---------------- table aliases ----------------
 
         [Fact]
-        public void Alias_is_added_without_AS_by_default()
+        public void No_alias_is_added_by_default()
         {
-            Assert.Equal("dbo.Customers c", Complete("SELECT * FROM Cust|").Items.First().InsertText);
+            Assert.Equal("dbo.Customers", Complete("SELECT * FROM Cust|").Items.First().InsertText);
         }
 
         [Fact]
-        public void AS_before_alias_is_an_option()
+        public void Alias_and_AS_are_options()
         {
-            var engine = new CompletionEngine { NewLine = "\n", Options = new CompletionOptions { AliasWithAs = true } };
+            var engine = new CompletionEngine { NewLine = "\n", Options = new CompletionOptions { AutoAlias = true } };
+            Assert.Equal("dbo.Customers c", Complete("SELECT * FROM Cust|", engine: engine).Items.First().InsertText);
+            engine.Options = new CompletionOptions { AutoAlias = true, AliasWithAs = true };
             Assert.Equal("dbo.Customers AS c", Complete("SELECT * FROM Cust|", engine: engine).Items.First().InsertText);
+        }
+
+        [Theory]
+        [InlineData("SELECT * FROM dbo.Customers AS |", "c")]
+        [InlineData("SELECT * FROM dbo.Customers as c|", "c")]
+        [InlineData("SELECT * FROM [sales].[SalesOrderHeader] AS |", "soh")]
+        [InlineData("SELECT * FROM Customers AS |", "c")]
+        [InlineData("SELECT * FROM dbo.Customers AS c JOIN dbo.Customers AS |", "c2")]
+        [InlineData("SELECT * FROM dbo.Customers c, sales.SalesOrderHeader AS |", "soh")]
+        [InlineData("SELECT * FROM dbo.Customers c CROSS APPLY dbo.fn_OrdersOf(c.CustomerID) AS |", "foo")]
+        [InlineData("SELECT * FROM dbo.Customers AS | WHERE 1 = 1", "c")]
+        [InlineData("MERGE INTO dbo.Customers AS |", "c")]
+        public void AS_after_a_table_suggests_its_alias(string sql, string expected)
+        {
+            var r = Complete(sql);
+            Assert.Single(r.Items);
+            Assert.Equal(expected, r.Items[0].InsertText);
+            Assert.Equal(CompletionItemKind.Alias, r.Items[0].Kind);
+        }
+
+        [Theory]
+        [InlineData("SELECT Name AS |")]
+        [InlineData("SELECT * FROM (SELECT 1 AS x) AS |")]
+        [InlineData("WITH recent AS |")]
+        [InlineData("SELECT CAST(1 AS |")]
+        public void AS_elsewhere_suggests_no_table_alias(string sql)
+        {
+            Assert.DoesNotContain(Complete(sql).Items, i => i.Kind == CompletionItemKind.Alias);
         }
 
         // ---------------- sys. ----------------

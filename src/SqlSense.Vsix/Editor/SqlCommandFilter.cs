@@ -291,6 +291,12 @@ namespace SqlSense.Editor
             {
                 var line = caret.GetContainingLine();
                 var before = snapshot.GetText(line.Start.Position, caret.Position - line.Start.Position).TrimEnd();
+                if (EndsWithWord(before, "AS"))
+                {
+                    // "FROM dbo.Customers AS " → its alias; "CAST(x AS " → data types; not after CREATE … AS.
+                    var ctx = ContextAnalyzer.Analyze(snapshot.GetText(), caret.Position);
+                    return ctx.Kind == ContextKind.AliasName && ctx.AliasTarget != null || ctx.Kind == ContextKind.DataType;
+                }
                 foreach (var w in TriggerWordsBeforeSpace)
                 {
                     if (before.EndsWith(w, StringComparison.OrdinalIgnoreCase)
@@ -304,6 +310,10 @@ namespace SqlSense.Editor
             var p = caret.Position - 2;
             return p < 0 || !IsWordChar(snapshot[p]) && snapshot[p] != '.';
         }
+
+        private static bool EndsWithWord(string text, string word) =>
+            text.EndsWith(word, StringComparison.OrdinalIgnoreCase)
+            && (text.Length == word.Length || !IsWordChar(text[text.Length - word.Length - 1]));
 
         private static bool IsWordChar(char c) => char.IsLetterOrDigit(c) || c == '_' || c == '@' || c == '#' || c == '$';
 

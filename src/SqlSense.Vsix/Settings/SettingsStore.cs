@@ -135,7 +135,7 @@ namespace SqlSense.Settings
                 IncludeSystemObjects = Get(Suggestions + "includeSystemObjects", true),
                 Completion = new CompletionOptions
                 {
-                    AutoAlias = Get(Suggestions + "autoAlias", true),
+                    AutoAlias = Get(Suggestions + "addTableAlias", false),
                     AliasWithAs = Get(Suggestions + "aliasAsKeyword", false),
                     AlwaysQualifySchema = Get(Suggestions + "alwaysQualifySchema", true),
                     InsertGeneratesColumns = Get(Suggestions + "insertGeneratesColumns", true),

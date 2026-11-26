@@ -2,8 +2,8 @@ namespace SqlSense.Core.Completion
 {
     public sealed class CompletionOptions
     {
-        /// <summary>Append a generated alias when a table is picked in FROM/JOIN.</summary>
-        public bool AutoAlias { get; set; } = true;
+        /// <summary>Append a generated alias when a table is picked in FROM/JOIN. Off by default.</summary>
+        public bool AutoAlias { get; set; }
 
         /// <summary>Write "Table AS t" instead of "Table t". Off by default.</summary>
         public bool AliasWithAs { get; set; }

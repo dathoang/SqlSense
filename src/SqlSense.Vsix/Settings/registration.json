@@ -83,19 +83,18 @@
       "default": true,
       "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\AutoTrigger" }, "mode": "oneTimeFromLegacy" } }
     },
-    "sqlSense.suggestions.autoAlias": {
+    "sqlSense.suggestions.addTableAlias": {
       "type": "boolean",
       "title": "Add table aliases",
-      "description": "Picking a table in FROM/JOIN appends a generated alias (Customers → c).",
-      "default": true,
-      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\AutoAlias" }, "mode": "oneTimeFromLegacy" } }
+      "description": "Picking a table in FROM/JOIN appends a generated alias (Customers → c). Off by default: the table is inserted alone, and typing AS after it suggests the alias.",
+      "default": false
     },
     "sqlSense.suggestions.aliasAsKeyword": {
       "type": "boolean",
       "title": "Add AS before table aliases",
       "description": "Write 'Customers AS c' instead of 'Customers c'. Off by default: picking a table adds only the alias.",
       "default": false,
-      "enableWhen": "${config:sqlSense.suggestions.autoAlias} == 'true'"
+      "enableWhen": "${config:sqlSense.suggestions.addTableAlias} == 'true'"
     },
     "sqlSense.suggestions.alwaysQualifySchema": {
       "type": "boolean",

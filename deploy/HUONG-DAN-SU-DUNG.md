@@ -96,13 +96,15 @@ Tìm kiếm mờ: gõ `soh` tìm được `SalesOrderHeader`; khớp đầu từ
 
 ```sql
 ssf⇥                     →  SELECT * FROM |
-SELECT * FROM cus⇥       →  SELECT * FROM dbo.Customers c
+SELECT * FROM cus⇥       →  SELECT * FROM dbo.Customers
+SELECT * FROM dbo.Customers AS ⇥  →  gợi ý alias c
 ```
 
 * Sau `FROM` / `JOIN` / `APPLY` / `UPDATE` / `INSERT INTO`: gợi ý bảng, view, hàm bảng.
-* Chọn bảng sẽ tự thêm schema và alias không trùng với alias đã có (`Customers` → `c`). Mặc định **không** thêm `AS`
-  trước alias; muốn có `AS` thì bật Tools › Options › SqlSense › Suggestions › *Add AS before table aliases*
-  (tắt hẳn alias: *Add table aliases*).
+* Chọn bảng sẽ tự thêm schema; mặc định **không** thêm alias. Gõ `AS` sau tên bảng thì danh sách tự mở với alias gợi ý,
+  không trùng alias đã có (`Customers` → `c`, `SalesOrderHeader` → `soh`; bảng thứ hai cùng tên → `c2`).
+* Muốn chọn bảng là có alias luôn: bật Tools › Options › SqlSense › Suggestions › *Add table aliases*
+  (`dbo.Customers c`); bật thêm *Add AS before table aliases* để được `dbo.Customers AS c`.
 * Trong danh sách cột / WHERE / ORDER BY: gợi ý cột của các bảng trong câu, hàm, biến, từ khoá.
 * Gõ `c.` → chỉ cột của bảng có alias `c`; `dbo.` → các object trong schema; `TenDb.` → các schema.
 * Gõ trọn một tên (ví dụ `sys`) thì tên đó được chọn trước các bảng bắt đầu bằng nó. Dấu `.` chỉ chèn schema, database,
@@ -131,7 +133,7 @@ EXEC Archive.dbo.⇥                    -- procedure của database khác
 SELECT *
 FROM dbo.SalesOrderHeader AS soh
     JOIN ⇥                       →  bảng có khoá ngoại tới soh xếp đầu (dbo.Customers …)
-    JOIN cus⇥                    →  JOIN dbo.Customers c
+    JOIN cus⇥ AS ⇥               →  JOIN dbo.Customers AS c
     ON ⇥                         →  ON soh.CustomerID = c.CustomerID
 ```
 
@@ -571,8 +573,8 @@ Yêu cầu: Visual Studio 2022/2026 với workload **Visual Studio extension dev
 (để sinh tài liệu Word từ `deploy\HUONG-DAN-SU-DUNG.md`; lần đầu script tự chạy `npm ci` trong `deploy\tools`).
 
 ```powershell
-.\deploy\Build-Package.ps1 -Version 1.7.0           # test + rebuild + đóng gói
-.\deploy\Build-Package.ps1 -Version 1.7.0 -Install  # ... và cài luôn vào SSMS trên máy này
+.\deploy\Build-Package.ps1 -Version 1.7.1           # test + rebuild + đóng gói
+.\deploy\Build-Package.ps1 -Version 1.7.1 -Install  # ... và cài luôn vào SSMS trên máy này
 .\deploy\Build-Package.ps1 -SkipTests               # giữ nguyên phiên bản, bỏ qua unit test
 ```
 

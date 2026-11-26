@@ -57,6 +57,14 @@ namespace SqlSense.Core.Completion
             _schemaPending = false;
             var ctx = ContextAnalyzer.Analyze(text, caret, schema);
             var items = new List<CompletionItem>();
+            if (ctx.Kind == ContextKind.AliasName && ctx.AliasTarget != null && !ctx.HasQualifier)
+            {
+                // "FROM dbo.Customers AS |": the alias that picking the table would have added.
+                var taken = ctx.TablesInScope.Where(t => t.TokenIndex != ctx.AliasTargetTokenIndex).Select(t => t.Alias ?? t.Name);
+                var alias = AliasGenerator.Generate(ctx.AliasTarget, taken);
+                items.Add(new CompletionItem(alias, Quote(alias), CompletionItemKind.Alias, "alias for " + ctx.AliasTarget));
+                return new CompletionResult(ctx, Rank(items, FilterByPrefix ? ctx.Prefix : string.Empty));
+            }
             if (ctx.Kind == ContextKind.None || ctx.Kind == ContextKind.AliasName)
                 return new CompletionResult(ctx, items);
 
