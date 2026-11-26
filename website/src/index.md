@@ -29,8 +29,9 @@ thường gặp và định dạng SQL mà không bao giờ làm đổi nghĩa c
 
     ---
 
-    Alias không trùng, điều kiện `JOIN … ON` từ khoá ngoại và cột cùng tên, khuôn `INSERT … VALUES` và tham số `EXEC`, mở rộng
-    `SELECT *` thành danh sách cột, snippet (`ssf`, `bt`, `cte` … + Tab).
+    Alias không trùng, điều kiện `JOIN … ON` từ khoá ngoại và cột cùng tên, khuôn `INSERT … VALUES` (cả bảng ở database
+    khác: `INSERT INTO DbA.dbo.`) và tham số `EXEC`, mở rộng `SELECT *` thành danh sách cột, snippet (`ssf`, `bt`,
+    `cte` … + Tab).
 
 -   :material-file-replace-outline: **ALTER có sẵn định nghĩa**
 
@@ -44,7 +45,8 @@ thường gặp và định dạng SQL mà không bao giờ làm đổi nghĩa c
     ---
 
     **Ctrl+K, Ctrl+Y**. Sau khi định dạng, SqlSense so lại từng token với bản gốc. Nếu có gì khác ngoài khoảng trắng và
-    hoa/thường thì không áp dụng. Nhập được style của SQL Prompt.
+    hoa/thường thì không áp dụng. Danh sách cột `INSERT` dài được xếp kín từng dòng, giá trị ngắt dòng khớp với cột.
+    Nhập được style của SQL Prompt.
 
 -   :material-unfold-less-horizontal: **Thu gọn code theo cấp**
 
