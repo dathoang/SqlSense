@@ -1,0 +1,37 @@
+# English site, published under /en/. See mkdocs.yml for the layout of the two languages.
+INHERIT: base.yml
+site_name: SqlSense
+site_description: Schema-aware T-SQL suggestions, autocomplete and a safe SQL formatter for SQL Server Management Studio 22.
+site_url: https://dathoang.github.io/SqlSense/en/
+docs_dir: src/en
+site_dir: ../dist/site/en
+
+watch:
+  - ../deploy/USER-GUIDE.md
+  - assets
+
+nav:
+  - Home: index.md
+  - User guide: user-guide.md
+
+theme:
+  language: en
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/weather-sunny
+        name: Light mode
+
+plugins:
+  - search:
+      lang: en

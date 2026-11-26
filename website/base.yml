@@ -1,0 +1,55 @@
+# Settings shared by the Vietnamese (mkdocs.yml) and English (mkdocs.en.yml) sites; each INHERITs this file.
+# Relative paths below resolve against website/, where both configs live.
+site_url: https://dathoang.github.io/SqlSense/
+site_author: Dat Hoang
+repo_url: https://github.com/dathoang/SqlSense
+repo_name: dathoang/SqlSense
+edit_uri: ""
+copyright: MIT License © 2026 Dat Hoang
+
+hooks:
+  - hooks.py
+
+theme:
+  name: material
+  icon:
+    logo: material/database-search
+    repo: fontawesome/brands/github
+  favicon: assets/favicon.svg
+  features:
+    - navigation.tabs
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.highlight
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+extra_javascript:
+  - assets/language.js
+
+extra:
+  # Language selector in the header. Vietnamese stays at the site root so existing links keep working.
+  alternate:
+    - name: Tiếng Việt
+      link: /SqlSense/
+      lang: vi
+    - name: English
+      link: /SqlSense/en/
+      lang: en
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/dathoang/SqlSense

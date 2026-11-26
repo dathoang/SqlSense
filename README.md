@@ -3,7 +3,8 @@
 An independent T-SQL productivity extension for **SQL Server Management Studio 22** (x64, VS 18 shell):
 schema-aware suggestions, autocomplete generators, snippets and a safe formatter.
 
-**Website and user guide (Vietnamese): https://dathoang.github.io/SqlSense/** ·
+**Website and user guide: [English](https://dathoang.github.io/SqlSense/en/) ·
+[Tiếng Việt](https://dathoang.github.io/SqlSense/)** ·
 **Download: [latest release](https://github.com/dathoang/SqlSense/releases/latest)**
 
 Its design follows the general architecture of Redgate SQL Prompt (an editor command filter in front of the SQL
@@ -108,7 +109,8 @@ binaries are used. The parser is Microsoft's open-source `Microsoft.SqlServer.Tr
 Import SQL Prompt Style, Edit Connection Colors).
 **Options:** Tools › Options › SqlSense (General, Suggestions, Formatting, Connection Colors).
 
-User guide (Vietnamese), from install to the main use cases: [deploy/HUONG-DAN-SU-DUNG.md](deploy/HUONG-DAN-SU-DUNG.md).
+User guide, from install to the main use cases: [deploy/USER-GUIDE.md](deploy/USER-GUIDE.md) (English),
+[deploy/HUONG-DAN-SU-DUNG.md](deploy/HUONG-DAN-SU-DUNG.md) (Vietnamese; the package ships it as Word).
 
 ## Install
 

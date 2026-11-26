@@ -6,6 +6,7 @@ VS Code, xuất kết quả ra Excel /
 INSERT và tô màu cửa sổ truy vấn theo server/database.
 
 Bản online của tài liệu này (có tìm kiếm): <https://dathoang.github.io/SqlSense/huong-dan/>
+(tiếng Anh: <https://dathoang.github.io/SqlSense/en/user-guide/>)
 
 ---
 
