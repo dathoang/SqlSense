@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using SqlSense.Core.Schema;
 
 namespace SqlSense.Core.Completion
@@ -89,9 +90,38 @@ namespace SqlSense.Core.Completion
     /// <summary>Scores how well a typed prefix matches a candidate (higher is better, 0 = no match).</summary>
     public static class CompletionMatcher
     {
+        /// <summary>
+        /// Ranking bucket of a score: an exact match beats every prefix match (typing "sys" picks the schema sys, not
+        /// sys.syscolumns), while prefix matches of either case compete on priority.
+        /// </summary>
+        public static int Bucket(int score) => score >= 1000 ? 1000 : score >= 800 ? 800 : score;
+
+        /// <summary>
+        /// Whether typing "." after <paramref name="typed"/> should commit <paramref name="item"/>: only a name that can be
+        /// qualified further (schema, database, server, alias, or exactly what was typed), never a table that would bring
+        /// its alias along ("sys." must not become "sys.syscolumns s.").
+        /// </summary>
+        public static bool CommitsOnDot(CompletionItem item, string typed)
+        {
+            if (item == null) return false;
+            var insert = item.InsertText ?? string.Empty;
+            if (insert.Length == 0 || insert.Any(c => char.IsWhiteSpace(c) || c == '(' || c == '\'')) return false;
+            switch (item.Kind)
+            {
+                case CompletionItemKind.Schema:
+                case CompletionItemKind.Database:
+                case CompletionItemKind.Server:
+                case CompletionItemKind.Alias:
+                    return true;
+                default:
+                    return Strip(typed ?? string.Empty).TrimEnd(']').Equals(Strip(item.DisplayText).TrimEnd(']'), StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
         public static int Score(string typed, string candidate)
         {
             if (string.IsNullOrEmpty(typed)) return 1;
+            if (candidate != null && candidate.IndexOf(" = ", StringComparison.Ordinal) > 0) return ConditionScore(typed, candidate);
             typed = Strip(typed);
             candidate = Strip(candidate);
             if (typed.Length == 0) return 1;
@@ -103,6 +133,23 @@ namespace SqlSense.Core.Completion
             var idx = candidate.IndexOf(typed, StringComparison.OrdinalIgnoreCase);
             if (idx > 0) return 500 - Math.Min(idx, 100);
             return 0;
+        }
+
+        /// <summary>
+        /// A join condition ("soh.CustomerID = c.CustomerID AND …") matches on any of its aliases or columns, never
+        /// exactly (typing a column name still prefers the column itself).
+        /// </summary>
+        private static int ConditionScore(string typed, string condition)
+        {
+            var best = 0;
+            foreach (var operand in condition.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (operand == "=" || operand.Equals("AND", StringComparison.OrdinalIgnoreCase)) continue;
+                var dot = operand.LastIndexOf('.');
+                var parts = dot > 0 ? new[] { operand.Substring(0, dot), operand.Substring(dot + 1) } : new[] { operand };
+                foreach (var part in parts) best = Math.Max(best, Score(typed, part.Trim('[', ']')));
+            }
+            return Math.Min(best, 900);
         }
 
         private static string Strip(string s)

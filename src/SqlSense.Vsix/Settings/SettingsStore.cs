@@ -136,7 +136,7 @@ namespace SqlSense.Settings
                 Completion = new CompletionOptions
                 {
                     AutoAlias = Get(Suggestions + "autoAlias", true),
-                    AliasWithAs = Get(Suggestions + "aliasWithAs", true),
+                    AliasWithAs = Get(Suggestions + "aliasAsKeyword", false),
                     AlwaysQualifySchema = Get(Suggestions + "alwaysQualifySchema", true),
                     InsertGeneratesColumns = Get(Suggestions + "insertGeneratesColumns", true),
                     ExecGeneratesParameters = Get(Suggestions + "execGeneratesParameters", true),
@@ -144,6 +144,7 @@ namespace SqlSense.Settings
                     SuggestJoinConditions = Get(Suggestions + "suggestJoinConditions", true),
                     SuggestSameNameJoins = Get(Suggestions + "suggestSameNameJoins", true),
                     UppercaseKeywords = Get(Suggestions + "uppercaseKeywords", true),
+                    RankRecentlyUsed = Get(Suggestions + "rankRecentlyUsed", true),
                 },
                 Format = ReadFormatOptions(),
             };

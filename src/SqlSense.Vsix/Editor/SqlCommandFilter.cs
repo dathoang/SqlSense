@@ -25,6 +25,9 @@ namespace SqlSense.Editor
     {
         public static readonly object SessionMarker = new object();
 
+        /// <summary>Suggestions picked in this SSMS session, shared by every query window.</summary>
+        public static readonly CompletionHistory History = new CompletionHistory();
+
         /// <summary>Set by the completion source when it had no schema yet (still loading).</summary>
         public static readonly object WithoutSchemaMarker = new object();
 
@@ -34,6 +37,7 @@ namespace SqlSense.Editor
             "PROCEDURE", "PROC", "FUNCTION", "VIEW", "TRIGGER",
             "ROLE", "USER", "LOGIN", "MEMBER", "SCHEMA", "DATABASE", "TO", "AUTHORIZATION",
             "BACKUP", "RESTORE", "DBCC", "LOG", "INDEX", "STATISTICS", "REFERENCES", "COLUMN", "CONSTRAINT",
+            "WHERE", "HAVING", "BY",
         };
 
         private readonly IWpfTextView _view;
@@ -218,8 +222,10 @@ namespace SqlSense.Editor
             var settings = SqlSenseSettings.Current;
             if (HasSession && !IsWordChar(ch))
             {
-                // Punctuation commits a definite selection, then is typed as usual.
-                if (ch == '.' || ch == '(' || ch == ',' || ch == ')' || ch == ';' || ch == '=') Commit(requireSelection: true);
+                // Punctuation commits a definite selection, then is typed as usual. A dot only commits a name that can
+                // be qualified further: "sys." keeps "sys" instead of picking a table (and its alias) that starts with it.
+                if (ch == '.') CommitBeforeDot();
+                else if (ch == '(' || ch == ',' || ch == ')' || ch == ';' || ch == '=') Commit(requireSelection: true);
                 else _session.Dismiss();
             }
 
@@ -419,9 +425,22 @@ namespace SqlSense.Editor
             var span = ReplacementSpan(set.ApplicableTo.GetSpan(_view.TextBuffer.CurrentSnapshot));
             _session.Dismiss();
             EditorActions.Replace(_view, span, insert, caretOffset);
+            History.Record(item);
             if (item?.ScriptRequest != null) ObjectScripter.Start(_view, item.ScriptRequest);
             _handled = VSConstants.S_OK;
             return true;
+        }
+
+        private void CommitBeforeDot()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var set = SqlSet();
+            var status = set?.SelectionStatus;
+            CompletionItem item = null;
+            status?.Completion?.Properties.TryGetProperty(typeof(CompletionItem), out item);
+            var typed = set?.ApplicableTo.GetText(_view.TextBuffer.CurrentSnapshot);
+            if (status != null && status.IsSelected && CompletionMatcher.CommitsOnDot(item, typed)) Commit(requireSelection: true);
+            else _session.Dismiss();
         }
 
         /// <summary>

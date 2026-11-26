@@ -48,8 +48,8 @@ namespace SqlSense.IntelliSense
             {
                 count++;
                 var score = CompletionMatcher.Score(typed, c.DisplayText);
-                // Prefix matches are equally good; the list order (priority) breaks ties.
-                var rank = score >= 800 ? 800 : score;
+                // An exact match wins; prefix matches are equally good and the list order (priority) breaks ties.
+                var rank = CompletionMatcher.Bucket(score);
                 if (rank > bestScore)
                 {
                     best = c;

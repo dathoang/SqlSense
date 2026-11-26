@@ -46,6 +46,7 @@ namespace SqlSense.IntelliSense
                 {
                     NewLine = SqlDocument.LineBreak(snapshot),
                     FilterByPrefix = false,
+                    History = SqlCommandFilter.History,
                 };
                 var result = engine.GetCompletions(text, caret, schema);
                 // Still loading: SqlCommandFilter reopens the list once it arrives. A server-only stand-in already

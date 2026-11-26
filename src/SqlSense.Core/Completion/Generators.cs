@@ -37,12 +37,53 @@ namespace SqlSense.Core.Completion
             SqlVocabulary.Keywords.Contains(word.ToUpperInvariant());
     }
 
+    /// <summary>
+    /// A join condition between the newest joined table and an earlier one. <see cref="Render"/> writes it from either
+    /// side, so "ON c." can offer "CustomerID = soh.CustomerID".
+    /// </summary>
+    public sealed class JoinCondition
+    {
+        public JoinCondition(TableRef joined, IReadOnlyList<string> joinedColumns, TableRef other, IReadOnlyList<string> otherColumns)
+        {
+            Joined = joined;
+            JoinedColumns = joinedColumns;
+            Other = other;
+            OtherColumns = otherColumns;
+        }
+
+        public TableRef Joined { get; }
+        public IReadOnlyList<string> JoinedColumns { get; }
+        public TableRef Other { get; }
+        public IReadOnlyList<string> OtherColumns { get; }
+
+        public string Text => Render(false);
+
+        /// <summary>"joined.a = other.b AND …", or with each pair flipped when <paramref name="otherFirst"/>.</summary>
+        public string Render(bool otherFirst)
+        {
+            var parts = new List<string>();
+            for (var i = 0; i < JoinedColumns.Count && i < OtherColumns.Count; i++)
+            {
+                var j = CompletionEngine.Quote(Joined.Qualifier) + "." + CompletionEngine.Quote(JoinedColumns[i]);
+                var o = CompletionEngine.Quote(Other.Qualifier) + "." + CompletionEngine.Quote(OtherColumns[i]);
+                parts.Add(otherFirst ? o + " = " + j : j + " = " + o);
+            }
+            return string.Join(" AND ", parts);
+        }
+    }
+
     /// <summary>Join conditions between the newest joined table and earlier ones: from foreign keys or same-named columns.</summary>
     public static class JoinConditions
     {
-        public static List<string> Suggest(List<TableRef> refs, DatabaseSchema schema)
+        public static List<string> Suggest(List<TableRef> refs, DatabaseSchema schema) =>
+            ForeignKeys(refs, schema).Select(c => c.Text).Distinct().ToList();
+
+        public static List<string> SameName(List<TableRef> refs) =>
+            SameNameColumns(refs).Select(c => c.Text).Distinct().ToList();
+
+        public static List<JoinCondition> ForeignKeys(List<TableRef> refs, DatabaseSchema schema)
         {
-            var result = new List<string>();
+            var result = new List<JoinCondition>();
             if (schema == null || refs.Count < 2) return result;
             var joined = refs[refs.Count - 1];
             if (joined.Object == null) return result;
@@ -52,12 +93,12 @@ namespace SqlSense.Core.Completion
                 foreach (var fk in schema.ForeignKeys)
                 {
                     if (Is(fk.FromSchema, fk.FromTable, joined.Object) && Is(fk.ToSchema, fk.ToTable, other.Object))
-                        result.Add(Condition(joined, fk.FromColumns, other, fk.ToColumns));
+                        result.Add(new JoinCondition(joined, fk.FromColumns, other, fk.ToColumns));
                     else if (Is(fk.FromSchema, fk.FromTable, other.Object) && Is(fk.ToSchema, fk.ToTable, joined.Object))
-                        result.Add(Condition(joined, fk.ToColumns, other, fk.FromColumns));
+                        result.Add(new JoinCondition(joined, fk.ToColumns, other, fk.FromColumns));
                 }
             }
-            return result.Distinct().ToList();
+            return result;
         }
 
         /// <summary>
@@ -66,9 +107,9 @@ namespace SqlSense.Core.Completion
         /// of them on one pair also give a combined AND condition. Columns whose types differ, or that are the identity
         /// of both tables (two unrelated surrogate keys), are skipped.
         /// </summary>
-        public static List<string> SameName(List<TableRef> refs)
+        public static List<JoinCondition> SameNameColumns(List<TableRef> refs)
         {
-            var result = new List<string>();
+            var result = new List<JoinCondition>();
             if (refs.Count < 2) return result;
             var joined = refs[refs.Count - 1];
             var joinedCols = joined.ColumnNames.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
@@ -80,17 +121,69 @@ namespace SqlSense.Core.Completion
                     .Where(c => Joinable(Column(joined, c), Column(other, c)))
                     .ToList();
                 var keys = common.Where(IsKeyLike).ToList();
-                if (keys.Count > 1) result.Add(Condition(joined, keys, other, keys));
+                if (keys.Count > 1) result.Add(new JoinCondition(joined, keys, other, keys));
                 foreach (var c in keys.Concat(common.Where(c => !IsKeyLike(c))))
-                    result.Add(Condition(joined, new[] { c }, other, new[] { c }));
+                    result.Add(new JoinCondition(joined, new[] { c }, other, new[] { c }));
             }
-            return result.Distinct().ToList();
+            return result;
+        }
+
+        /// <summary>
+        /// Whether <paramref name="column"/> of <paramref name="table"/> is the natural partner of
+        /// <paramref name="otherColumn"/> of <paramref name="other"/>: the same name, or the two ends of a foreign key.
+        /// </summary>
+        public static bool ArePartners(TableRef table, string column, TableRef other, string otherColumn, DatabaseSchema schema)
+        {
+            if (string.Equals(column, otherColumn, StringComparison.OrdinalIgnoreCase))
+                return Joinable(Column(table, column), Column(other, otherColumn));
+            if (schema == null || table.Object == null || other.Object == null) return false;
+            foreach (var fk in schema.ForeignKeys)
+            {
+                if (Is(fk.FromSchema, fk.FromTable, table.Object) && Is(fk.ToSchema, fk.ToTable, other.Object)
+                    && Pairs(fk.FromColumns, column, fk.ToColumns, otherColumn))
+                    return true;
+                if (Is(fk.FromSchema, fk.FromTable, other.Object) && Is(fk.ToSchema, fk.ToTable, table.Object)
+                    && Pairs(fk.FromColumns, otherColumn, fk.ToColumns, column))
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Objects with a foreign key to or from a table already in scope (nearest table first), keyed by
+        /// "schema.name", with a note such as "related to c (FK_Orders_Customers)". One pass over the keys.
+        /// </summary>
+        public static Dictionary<string, string> RelatedObjects(IEnumerable<TableRef> inScope, DatabaseSchema schema)
+        {
+            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (schema == null) return result;
+            foreach (var r in inScope.Reverse())
+            {
+                if (r.Object == null) continue;
+                foreach (var fk in schema.ForeignKeys)
+                {
+                    string key = null;
+                    if (Is(fk.FromSchema, fk.FromTable, r.Object)) key = fk.ToSchema + "." + fk.ToTable;
+                    else if (Is(fk.ToSchema, fk.ToTable, r.Object)) key = fk.FromSchema + "." + fk.FromTable;
+                    if (key != null && !result.ContainsKey(key)) result[key] = $"related to {r.Qualifier} ({fk.Name})";
+                }
+            }
+            return result;
+        }
+
+        /// <summary>Key-like column name: …ID, …Code, …Key, …No.</summary>
+        public static bool IsKeyLike(string column) =>
+            KeySuffixes.Any(s => column.EndsWith(s, StringComparison.OrdinalIgnoreCase));
+
+        private static bool Pairs(IReadOnlyList<string> from, string fromColumn, IReadOnlyList<string> to, string toColumn)
+        {
+            for (var i = 0; i < from.Count && i < to.Count; i++)
+                if (string.Equals(from[i], fromColumn, StringComparison.OrdinalIgnoreCase) && string.Equals(to[i], toColumn, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            return false;
         }
 
         private static readonly string[] KeySuffixes = { "id", "code", "key", "no", "num", "number" };
-
-        private static bool IsKeyLike(string column) =>
-            KeySuffixes.Any(s => column.EndsWith(s, StringComparison.OrdinalIgnoreCase));
 
         private static DbColumn Column(TableRef r, string name) =>
             r.Object?.Columns.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
@@ -111,14 +204,6 @@ namespace SqlSense.Core.Completion
 
         private static bool Is(string schema, string table, DbObject o) =>
             string.Equals(schema, o.Schema, StringComparison.OrdinalIgnoreCase) && string.Equals(table, o.Name, StringComparison.OrdinalIgnoreCase);
-
-        private static string Condition(TableRef left, IReadOnlyList<string> leftCols, TableRef right, IReadOnlyList<string> rightCols)
-        {
-            var parts = new List<string>();
-            for (var i = 0; i < leftCols.Count && i < rightCols.Count; i++)
-                parts.Add($"{CompletionEngine.Quote(left.Qualifier)}.{CompletionEngine.Quote(leftCols[i])} = {CompletionEngine.Quote(right.Qualifier)}.{CompletionEngine.Quote(rightCols[i])}");
-            return string.Join(" AND ", parts);
-        }
     }
 
     public sealed class TextEdit

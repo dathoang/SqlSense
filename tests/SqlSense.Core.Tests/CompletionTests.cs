@@ -50,7 +50,7 @@ namespace SqlSense.Core.Tests
             var r = Complete("SELECT * FROM Cust|");
             var first = r.Items.First();
             Assert.Equal("dbo.Customers", first.DisplayText);
-            Assert.Equal("dbo.Customers AS c", first.InsertText);
+            Assert.Equal("dbo.Customers c", first.InsertText);
         }
 
         [Theory]
@@ -73,7 +73,7 @@ namespace SqlSense.Core.Tests
         {
             var r = Complete("SELECT * FROM soh|");
             Assert.Equal("sales.SalesOrderHeader", r.Items.First().DisplayText);
-            Assert.Equal("sales.SalesOrderHeader AS soh", r.Items.First().InsertText);
+            Assert.Equal("sales.SalesOrderHeader soh", r.Items.First().InsertText);
         }
 
         [Theory]

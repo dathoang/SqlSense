@@ -71,6 +71,24 @@ namespace SqlSense.Core.Analysis
         /// <summary>True when the caret directly follows ON after a JOIN; join conditions can be offered.</summary>
         public bool IsJoinCondition { get; set; }
 
+        /// <summary>
+        /// "a.col = |" / "col = |": the column on the other side of the comparison and its qualifier (null when
+        /// unqualified), so its partner columns (same name or the other end of a foreign key) can be ranked first.
+        /// </summary>
+        public (string Qualifier, string Column)? ComparedColumn { get; set; }
+
+        /// <summary>"WHERE", "GROUP BY", "ORDER BY" or "HAVING" when the caret is in that clause of a SELECT.</summary>
+        public string SelectClause { get; set; }
+
+        /// <summary>The SELECT list of the query that owns <see cref="SelectClause"/>.</summary>
+        public List<SelectItem> SelectItems { get; set; } = new List<SelectItem>();
+
+        /// <summary>Expressions already written in the clause ("GROUP BY a, b, |"), folded.</summary>
+        public HashSet<string> ListedInClause { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>The word follows an arithmetic operator: an inserted "a + b" needs parentheses.</summary>
+        public bool AfterArithmetic { get; set; }
+
         /// <summary>True for FROM/JOIN/APPLY, where committing a table may add an alias.</summary>
         public bool AllowsAlias { get; set; }
 
@@ -203,6 +221,11 @@ namespace SqlSense.Core.Analysis
             }
 
             ctx.Kind = Classify(sig, lastIdx, stmt.Start, ctx);
+            if (ctx.Kind == ContextKind.Expression)
+            {
+                ctx.ComparedColumn = ComparedColumn(sig, lastIdx);
+                if (!ctx.HasQualifier) CollectSelectList(ctx, sig, allSig, lastIdx, stmt.Start, batch.Text);
+            }
             if ((ctx.Kind == ContextKind.InsertColumns && ctx.ClauseKeyword == "INDEX" || ctx.Kind == ContextKind.TableMember) && ctx.InsertTarget != null)
                 Resolve(new List<TableRef> { ctx.InsertTarget }, ctx.Ctes, ctx.LocalTables, schema);
             if (ctx.ScriptVerb != null)
@@ -519,6 +542,30 @@ namespace SqlSense.Core.Analysis
                     if (ExpressionKeywords.Contains(kw)) return ContextKind.Expression;
                     return ContextKind.Keyword;
             }
+        }
+
+        private static readonly HashSet<string> Arithmetic = new HashSet<string> { "+", "-", "*", "/", "%" };
+
+        private static void CollectSelectList(CompletionContext ctx, List<SqlToken> sig, List<SqlToken> allSig, int p, int stmtStart, string text)
+        {
+            if (p < 0) return;
+            ctx.AfterArithmetic = Arithmetic.Contains(sig[p].Text);
+            var (clause, clauseIndex, select) = SelectList.FindClause(sig, p, stmtStart);
+            if (clause == null) return;
+            ctx.SelectClause = clause;
+            ctx.SelectItems = SelectList.Collect(allSig, select, text);
+            if (clause == "GROUP BY") ctx.ListedInClause = SelectList.ListedExpressions(sig, clauseIndex + 1, p, text);
+        }
+
+        private static readonly HashSet<string> Comparisons = new HashSet<string> { "=", "<>", "!=", "<", ">", "<=", ">=" };
+
+        /// <summary>"[q.]col =" right before the word being typed (p = the comparison operator).</summary>
+        private static (string, string)? ComparedColumn(List<SqlToken> sig, int p)
+        {
+            if (p < 1 || !Comparisons.Contains(sig[p].Text) || !sig[p - 1].IsName) return null;
+            var column = sig[p - 1].Unquoted;
+            var qualifier = p >= 3 && sig[p - 2].Text == "." && sig[p - 3].IsName ? sig[p - 3].Unquoted : null;
+            return (qualifier, column);
         }
 
         private static ContextKind ClassifyParen(List<SqlToken> sig, int opener, int p, CompletionContext ctx)

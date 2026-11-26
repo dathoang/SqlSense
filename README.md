@@ -22,7 +22,8 @@ binaries are used. The parser is Microsoft's open-source `Microsoft.SqlServer.Tr
   tables; aliases of such tables get their columns, and hover works on every part. Another database's or a linked
   server's metadata loads in the background the first time it's named; the list reopens when it arrives.
 - Knows CTEs, temp tables (`CREATE TABLE #t`, `SELECT … INTO #t`), table variables, derived tables, and `UPDATE a … FROM t a`.
-- Fuzzy matching: `soh` finds `SalesOrderHeader`; prefix matches rank first.
+- Fuzzy matching: `soh` finds `SalesOrderHeader`; an exact name ranks first (`sys` → the schema, not `sys.syscolumns`),
+  then prefix matches. Typing `.` only commits a schema, database, alias or the exact name typed, never a table with its alias.
 - Metadata loads in the background per server/database/login and is cached (30 min by default); `USE db` switches the
   database used for suggestions; each database keeps its own cache entry, and while a database loads for the first time
   the database list, linked servers and logins come from another database cached on the same server. The status bar
@@ -33,9 +34,19 @@ binaries are used. The parser is Microsoft's open-source `Microsoft.SqlServer.Tr
   Refresh metadata after running CREATE/ALTER/DROP).
 
 **Autocomplete**
-- Table aliases: picking `Customers` in `FROM` inserts `dbo.Customers AS c` (configurable, no collisions).
+- Table aliases: picking `Customers` in `FROM` inserts `dbo.Customers c` (no collisions; `AS` is off by default, option
+  Suggestions › Add AS before table aliases).
 - `JOIN … ON` offers foreign-key conditions (`soh.CustomerID = c.CustomerID`), then conditions on same-named columns
   (key-like names first, combined with `AND` when there are several; also for CTEs and temp tables).
+- Context ranking: after `JOIN`, tables with a foreign key to one already in the query come first; `ON c.` offers the
+  join condition written from `c`'s side; right after `ON`, key columns of the newly joined table come first; on the
+  right of a comparison (`soh.CustomerID = c.`, `WHERE c.CustomerID = `) the partner column (same name or FK end) comes
+  first, a same-named variable (`@CustomerID`) above it, then variables and columns of a compatible type. Recently picked
+  items rank higher among equal matches (option: Suggestions › Rank recently used suggestions first).
+- Select-list reuse: in `WHERE` / `GROUP BY` / `HAVING` a select alias (`price * quantity AS amount`) is offered by name
+  and inserts its expression (wrapped in parentheses after an arithmetic operator); `GROUP BY` also offers
+  `(select columns)` = every non-aggregate item not yet listed; `HAVING` includes aggregates; `ORDER BY` offers the
+  aliases themselves. The list opens right after `WHERE `, `GROUP BY `, `ORDER BY `, `HAVING `.
 - `INSERT INTO` + table inserts the column list (no identity/computed columns) and a typed `VALUES` template.
 - `EXEC` + procedure inserts its parameters with typed defaults.
 - `ALTER PROCEDURE` / `FUNCTION` / `VIEW` / `TRIGGER` lists objects of that kind (also after `DROP … [IF EXISTS]` and

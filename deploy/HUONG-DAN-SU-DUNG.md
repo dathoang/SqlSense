@@ -96,13 +96,17 @@ Tìm kiếm mờ: gõ `soh` tìm được `SalesOrderHeader`; khớp đầu từ
 
 ```sql
 ssf⇥                     →  SELECT * FROM |
-SELECT * FROM cus⇥       →  SELECT * FROM dbo.Customers AS c
+SELECT * FROM cus⇥       →  SELECT * FROM dbo.Customers c
 ```
 
 * Sau `FROM` / `JOIN` / `APPLY` / `UPDATE` / `INSERT INTO`: gợi ý bảng, view, hàm bảng.
-* Chọn bảng sẽ tự thêm schema và alias không trùng với alias đã có (`Customers` → `c`).
+* Chọn bảng sẽ tự thêm schema và alias không trùng với alias đã có (`Customers` → `c`). Mặc định **không** thêm `AS`
+  trước alias; muốn có `AS` thì bật Tools › Options › SqlSense › Suggestions › *Add AS before table aliases*
+  (tắt hẳn alias: *Add table aliases*).
 * Trong danh sách cột / WHERE / ORDER BY: gợi ý cột của các bảng trong câu, hàm, biến, từ khoá.
 * Gõ `c.` → chỉ cột của bảng có alias `c`; `dbo.` → các object trong schema; `TenDb.` → các schema.
+* Gõ trọn một tên (ví dụ `sys`) thì tên đó được chọn trước các bảng bắt đầu bằng nó. Dấu `.` chỉ chèn schema, database,
+  alias hoặc đúng tên vừa gõ, không bao giờ chèn một bảng kèm alias: `FROM sys.` giữ nguyên `sys.` rồi liệt kê view hệ thống.
 * Nhận biết CTE, bảng tạm `#t` (`CREATE TABLE #t`, `SELECT … INTO #t`), biến bảng, derived table.
 
 **Tên đầy đủ sang database khác và linked server:**
@@ -126,7 +130,8 @@ EXEC Archive.dbo.⇥                    -- procedure của database khác
 ```sql
 SELECT *
 FROM dbo.SalesOrderHeader AS soh
-    JOIN cus⇥                    →  JOIN dbo.Customers AS c
+    JOIN ⇥                       →  bảng có khoá ngoại tới soh xếp đầu (dbo.Customers …)
+    JOIN cus⇥                    →  JOIN dbo.Customers c
     ON ⇥                         →  ON soh.CustomerID = c.CustomerID
 ```
 
@@ -139,6 +144,37 @@ Tiếp theo là điều kiện theo **cột cùng tên** ở hai bảng, kể c�
 * Dùng được cả với CTE, bảng tạm, biến bảng, derived table và khi chưa tải được metadata.
 * Bỏ qua cột khác kiểu dữ liệu, và cột identity ở cả hai bảng (hai khoá tự tăng không liên quan).
 * Tắt ở Tools › Options › SqlSense › Suggestions › *Suggest JOIN on same-named columns*.
+
+**Sắp xếp theo ngữ cảnh:**
+
+* Sau `JOIN`: bảng có foreign key tới một bảng đã có trong câu đứng đầu, mô tả ghi rõ `related to c (FK_…)`.
+* Gõ chữ sau `ON` (ví dụ `ON cus`) vẫn lọc được điều kiện JOIN theo tên cột hoặc alias trong điều kiện.
+* `ON c.⇥`: điều kiện JOIN viết từ phía `c` (`c.CustomerID = soh.CustomerID`) đứng đầu, chọn là chèn phần còn lại.
+* Ngay sau `ON`: cột dạng khoá (`…ID`, khoá chính, khoá ngoại) của bảng vừa JOIN, rồi của các bảng khác, đứng trước các cột còn lại.
+* Vế phải của phép so sánh (`ON soh.CustomerID = c.⇥`, `WHERE c.CustomerID = ⇥`): cột tương ứng (cùng tên hoặc đầu kia của
+  foreign key) đứng đầu, mô tả ghi `matches soh.CustomerID`. Biến cùng tên (`@CustomerID`) đứng trên cả cột đó; sau đó là
+  biến và cột **cùng nhóm kiểu dữ liệu** (số với số, chuỗi với chuỗi, ngày với ngày), rồi mới đến phần còn lại.
+* Mục vừa chọn gần đây (bảng, cột, hàm…) được đẩy lên trước các mục khớp ngang nhau. Lịch sử chỉ giữ trong phiên SSMS
+  hiện tại. Tắt ở Tools › Options › SqlSense › Suggestions › *Rank recently used suggestions first*.
+
+### Dùng lại cột của SELECT trong WHERE / GROUP BY / HAVING / ORDER BY
+
+```sql
+SELECT o.Product, price * quantity AS amount, SUM(price) AS total
+FROM sales.OrderLines AS o
+WHERE ⇥                 →  gợi ý amount; chọn là chèn  price * quantity
+GROUP BY ⇥              →  (select columns)  chèn  o.Product, price * quantity
+HAVING ⇥                →  total  chèn  SUM(price)
+ORDER BY ⇥              →  amount, total (giữ nguyên alias vì ORDER BY dùng được alias)
+```
+
+* SQL Server không cho dùng alias của SELECT trong `WHERE` / `GROUP BY` / `HAVING`, nên SqlSense gợi ý tên alias nhưng chèn
+  công thức gốc. Danh sách tự mở ngay sau `WHERE `, `GROUP BY `, `ORDER BY `, `HAVING `.
+* `WHERE` bỏ qua cột tổng hợp (`SUM`, `COUNT`…); `HAVING` có cả cột tổng hợp; hàm cửa sổ (`… OVER (…)`) không tính là tổng hợp.
+* `GROUP BY`: mục *(select columns)* chèn một lần mọi cột không tổng hợp của SELECT; các cột đã có trong `GROUP BY` thì không
+  gợi ý lại.
+* Chèn sau một phép tính (`2 * ⇥`) thì công thức có toán tử được bọc ngoặc: `2 * (price + 1)`.
+* Dùng được cả trong subquery (lấy SELECT của chính subquery đó) và khi chưa tải được metadata.
 
 ### 2.3 Mở rộng `SELECT *` thành danh sách cột
 

@@ -90,13 +90,12 @@
       "default": true,
       "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\AutoAlias" }, "mode": "oneTimeFromLegacy" } }
     },
-    "sqlSense.suggestions.aliasWithAs": {
+    "sqlSense.suggestions.aliasAsKeyword": {
       "type": "boolean",
-      "title": "Use AS before aliases",
-      "description": "Write 'Customers AS c' instead of 'Customers c'.",
-      "default": true,
-      "enableWhen": "${config:sqlSense.suggestions.autoAlias} == 'true'",
-      "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\AliasWithAs" }, "mode": "oneTimeFromLegacy" } }
+      "title": "Add AS before table aliases",
+      "description": "Write 'Customers AS c' instead of 'Customers c'. Off by default: picking a table adds only the alias.",
+      "default": false,
+      "enableWhen": "${config:sqlSense.suggestions.autoAlias} == 'true'"
     },
     "sqlSense.suggestions.alwaysQualifySchema": {
       "type": "boolean",
@@ -136,6 +135,12 @@
       "type": "boolean",
       "title": "Suggest JOIN on same-named columns",
       "description": "After JOIN … ON, also offer conditions on columns with the same name in both tables (key-like names such as …ID or …Code first). Works for CTEs and temp tables too.",
+      "default": true
+    },
+    "sqlSense.suggestions.rankRecentlyUsed": {
+      "type": "boolean",
+      "title": "Rank recently used suggestions first",
+      "description": "Tables, columns and other items you picked recently in this SSMS session move up among equally good matches.",
       "default": true
     },
     "sqlSense.suggestions.autoCloseBrackets": {

@@ -5,8 +5,8 @@ namespace SqlSense.Core.Completion
         /// <summary>Append a generated alias when a table is picked in FROM/JOIN.</summary>
         public bool AutoAlias { get; set; } = true;
 
-        /// <summary>Write "Table AS t" instead of "Table t".</summary>
-        public bool AliasWithAs { get; set; } = true;
+        /// <summary>Write "Table AS t" instead of "Table t". Off by default.</summary>
+        public bool AliasWithAs { get; set; }
 
         /// <summary>Always prefix objects with their schema, even the default one.</summary>
         public bool AlwaysQualifySchema { get; set; } = true;
@@ -25,6 +25,9 @@ namespace SqlSense.Core.Completion
 
         /// <summary>Offer conditions on same-named columns after JOIN … ON (also for CTEs and temp tables).</summary>
         public bool SuggestSameNameJoins { get; set; } = true;
+
+        /// <summary>Recently picked suggestions move up the list (needs <see cref="CompletionEngine.History"/>).</summary>
+        public bool RankRecentlyUsed { get; set; } = true;
 
         /// <summary>Keyword case used by completion items.</summary>
         public bool UppercaseKeywords { get; set; } = true;

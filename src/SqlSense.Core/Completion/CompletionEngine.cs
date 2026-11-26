@@ -47,6 +47,9 @@ namespace SqlSense.Core.Completion
         /// </summary>
         public bool FilterByPrefix { get; set; } = true;
 
+        /// <summary>Recently picked items; with <see cref="CompletionOptions.RankRecentlyUsed"/> they rank higher.</summary>
+        public CompletionHistory History { get; set; }
+
         private bool _schemaPending;
 
         public CompletionResult GetCompletions(string text, int caret, DatabaseSchema schema)
@@ -130,6 +133,10 @@ namespace SqlSense.Core.Completion
                 }
             }
 
+            if (History != null && Options.RankRecentlyUsed)
+                foreach (var item in items)
+                    item.Priority -= History.Boost(item);
+
             return new CompletionResult(ctx, Rank(items, FilterByPrefix ? ctx.Prefix : string.Empty)) { SchemaPending = _schemaPending };
         }
 
@@ -139,7 +146,7 @@ namespace SqlSense.Core.Completion
             return items
                 .Select(i => new { Item = i, Score = CompletionMatcher.Score(prefix, i.DisplayText) })
                 .Where(x => x.Score > 0)
-                .OrderByDescending(x => x.Score >= 800 ? 800 : x.Score) // prefix matches compete on priority
+                .OrderByDescending(x => CompletionMatcher.Bucket(x.Score)) // exact first; prefix matches compete on priority
                 .ThenBy(x => x.Item.Priority)
                 .ThenBy(x => x.Item.DisplayText, Ci)
                 .Select(x => x.Item)
@@ -159,13 +166,15 @@ namespace SqlSense.Core.Completion
                         || ctx.ClauseKeyword == "TABLE" || ctx.ClauseKeyword == "INTO"
                 ? new[] { DbObjectKind.Table, DbObjectKind.View, DbObjectKind.Synonym }
                 : new[] { DbObjectKind.Table, DbObjectKind.View, DbObjectKind.TableFunction, DbObjectKind.Synonym };
-            AddObjects(ctx, schema, items, o => kinds.Contains(o.Kind), null);
+            // After JOIN, tables with a foreign key to one already in the query come first.
+            var related = ctx.ClauseKeyword == "JOIN" ? JoinConditions.RelatedObjects(ctx.TablesInScope, schema) : null;
+            AddObjects(ctx, schema, items, o => kinds.Contains(o.Kind), null, related);
             AddSchemas(schema, items);
             AddDatabasesAndServers(schema, items);
         }
 
         private void AddObjects(CompletionContext ctx, DatabaseSchema schema, List<CompletionItem> items,
-            Func<DbObject, bool> filter, string onlySchema)
+            Func<DbObject, bool> filter, string onlySchema, Dictionary<string, string> related = null)
         {
             if (schema == null) return;
             foreach (var o in schema.Objects)
@@ -204,6 +213,11 @@ namespace SqlSense.Core.Completion
                         item = TableItem(ctx, display, name, kind, o.Kind.ToString().ToLowerInvariant() + DescribeColumns(o), priority,
                             o.Columns.Select(c => c.Name).ToList(), o);
                         break;
+                }
+                if (related != null && related.TryGetValue(o.Schema + "." + o.Name, out var note))
+                {
+                    item.Priority -= 6;
+                    item.Description = note + " — " + item.Description;
                 }
                 items.Add(item);
             }
@@ -302,26 +316,12 @@ namespace SqlSense.Core.Completion
 
         private void AddExpression(CompletionContext ctx, DatabaseSchema schema, List<CompletionItem> items)
         {
-            if (ctx.IsJoinCondition)
-            {
-                // FK conditions first, then same-named columns in generator order (priority keeps that order).
-                var conditions = new HashSet<string>(Ci);
-                if (Options.SuggestJoinConditions)
-                    foreach (var cond in JoinConditions.Suggest(ctx.TablesInScope, schema))
-                        if (conditions.Add(cond))
-                            items.Add(new CompletionItem(cond, cond, CompletionItemKind.JoinCondition, "join on foreign key") { Priority = -1000 });
-                if (Options.SuggestSameNameJoins)
-                {
-                    var priority = -999;
-                    foreach (var cond in JoinConditions.SameName(ctx.TablesInScope))
-                        if (conditions.Add(cond))
-                            items.Add(new CompletionItem(cond, cond, CompletionItemKind.JoinCondition, "join on same column name") { Priority = priority++ });
-                }
-            }
+            if (ctx.IsJoinCondition) AddJoinConditions(ctx, schema, items, null);
 
+            var seen = new HashSet<string>(Ci);
+            AddSelectItems(ctx, items, seen);
             var refs = ctx.TablesInScope;
             var multi = refs.Count(r => r.ColumnNames.Any()) > 1;
-            var seen = new HashSet<string>(Ci);
             foreach (var r in refs)
             {
                 foreach (var col in r.ColumnNames)
@@ -330,7 +330,9 @@ namespace SqlSense.Core.Completion
                     if (!seen.Add(display)) continue;
                     var dbCol = r.Object?.Columns.FirstOrDefault(c => Ci.Equals(c.Name, col));
                     var desc = (dbCol != null ? dbCol.Describe() : col) + " — " + (r.Object?.QualifiedName ?? r.Name ?? r.Alias);
-                    items.Add(new CompletionItem(display, multi ? Quote(r.Qualifier) + "." + Quote(col) : Quote(col), CompletionItemKind.Column, desc) { Priority = 0 });
+                    var item = new CompletionItem(display, multi ? Quote(r.Qualifier) + "." + Quote(col) : Quote(col), CompletionItemKind.Column, desc);
+                    item.Priority = ColumnPriority(ctx, schema, r, col, 0, item);
+                    items.Add(item);
                 }
             }
             foreach (var r in refs.Where(r => !string.IsNullOrEmpty(r.Qualifier)))
@@ -340,6 +342,7 @@ namespace SqlSense.Core.Completion
                         "alias of " + (r.Object?.QualifiedName ?? r.Name ?? "derived table")) { Priority = 1 });
             }
             AddVariables(ctx, items, 2);
+            RankComparedVariables(ctx, schema, items);
             foreach (var f in SqlVocabulary.Functions)
             {
                 var insert = f.NeedsParens ? f.Name + "()" : f.Name;
@@ -354,6 +357,161 @@ namespace SqlSense.Core.Completion
             AddKeywords(items, 8);
             if (ctx.ClauseKeyword == "(" || ctx.ClauseKeyword == "EXISTS" || ctx.ClauseKeyword == "IN")
                 AddSnippets(items, ctx);
+        }
+
+        /// <summary>
+        /// ON |: foreign-key conditions first, then same-named columns in generator order (priority keeps that order).
+        /// ON c.|: the conditions involving c, written from c's side and inserted after the "c." already typed.
+        /// </summary>
+        private void AddJoinConditions(CompletionContext ctx, DatabaseSchema schema, List<CompletionItem> items, TableRef from)
+        {
+            var conditions = new List<(JoinCondition Condition, string Description)>();
+            if (Options.SuggestJoinConditions)
+                conditions.AddRange(JoinConditions.ForeignKeys(ctx.TablesInScope, schema).Select(c => (c, "join on foreign key")));
+            if (Options.SuggestSameNameJoins)
+                conditions.AddRange(JoinConditions.SameNameColumns(ctx.TablesInScope).Select(c => (c, "join on same column name")));
+
+            var seen = new HashSet<string>(Ci);
+            var priority = -1000;
+            foreach (var (condition, description) in conditions)
+            {
+                string display, insert;
+                if (from == null) display = insert = condition.Text;
+                else
+                {
+                    var otherFirst = ReferenceEquals(condition.Other, from);
+                    if (!otherFirst && !ReferenceEquals(condition.Joined, from)) continue;
+                    display = condition.Render(otherFirst);
+                    var lead = Quote(from.Qualifier) + ".";
+                    if (!display.StartsWith(lead, StringComparison.OrdinalIgnoreCase)) continue;
+                    insert = display.Substring(lead.Length);
+                }
+                if (seen.Add(display))
+                    items.Add(new CompletionItem(display, insert, CompletionItemKind.JoinCondition, description) { Priority = priority++ });
+            }
+        }
+
+        /// <summary>
+        /// Context ranking for a column of <paramref name="table"/>: after "a.col =" its partners (same name, or the
+        /// other end of a foreign key) come first; right after ON, key columns (…ID, primary and foreign key columns)
+        /// of the newly joined table, then of the other tables, come before the rest.
+        /// </summary>
+        private static int ColumnPriority(CompletionContext ctx, DatabaseSchema schema, TableRef table, string column, int basePriority, CompletionItem item)
+        {
+            if (ctx.ComparedColumn.HasValue)
+            {
+                var (q, compared) = ctx.ComparedColumn.Value;
+                var left = ComparedTable(ctx);
+                if (left == null) return basePriority;
+                if (!ReferenceEquals(left, table) && JoinConditions.ArePartners(table, column, left, compared, schema))
+                {
+                    item.Description = "matches " + (q != null ? q + "." : "") + compared + " — " + item.Description;
+                    return basePriority - 500;
+                }
+                // Then columns of a compatible type (numbers with numbers, text with text, dates with dates).
+                var leftType = left.Object?.Columns.FirstOrDefault(c => Ci.Equals(c.Name, compared))?.DataType;
+                var type = table.Object?.Columns.FirstOrDefault(c => Ci.Equals(c.Name, column))?.DataType;
+                if (!(ReferenceEquals(left, table) && Ci.Equals(column, compared)) && SqlTypes.Compatible(leftType, type))
+                    return basePriority - 100;
+                return basePriority;
+            }
+            if (ctx.IsJoinCondition && IsKeyColumn(table, column, schema))
+                return basePriority - (ReferenceEquals(table, ctx.TablesInScope.LastOrDefault()) ? 200 : 100);
+            return basePriority;
+        }
+
+        /// <summary>The table of the column on the other side of the comparison ("c.CustomerID = |"), or null.</summary>
+        private static TableRef ComparedTable(CompletionContext ctx)
+        {
+            if (!ctx.ComparedColumn.HasValue) return null;
+            var (q, compared) = ctx.ComparedColumn.Value;
+            return q != null
+                ? ctx.TablesInScope.FirstOrDefault(t => t.Matches(q)) ?? ctx.TablesInScope.FirstOrDefault(t => Ci.Equals(t.Name, q))
+                : ctx.TablesInScope.FirstOrDefault(t => t.ColumnNames.Contains(compared, Ci));
+        }
+
+        /// <summary>
+        /// "c.CustomerID = |": a variable named like the column (@CustomerID) first of all, then variables of a
+        /// compatible type ahead of the other columns.
+        /// </summary>
+        private static void RankComparedVariables(CompletionContext ctx, DatabaseSchema schema, List<CompletionItem> items)
+        {
+            if (!ctx.ComparedColumn.HasValue) return;
+            var compared = ctx.ComparedColumn.Value.Column;
+            var leftType = ComparedTable(ctx)?.Object?.Columns.FirstOrDefault(c => Ci.Equals(c.Name, compared))?.DataType;
+            foreach (var v in ctx.Variables)
+            {
+                var item = items.FirstOrDefault(i => i.Kind == CompletionItemKind.Variable && i.DisplayText == v.Name);
+                if (item == null) continue;
+                var bare = v.Name.TrimStart('@');
+                if (Ci.Equals(bare, compared) || bare.EndsWith(compared, StringComparison.OrdinalIgnoreCase) && bare.Length - compared.Length <= 4)
+                {
+                    item.Priority = -600;
+                    item.Description = "matches " + compared + " — " + item.Description;
+                }
+                else if (SqlTypes.Compatible(leftType, v.DataType)) item.Priority = -50;
+            }
+        }
+
+        /// <summary>
+        /// The SELECT list reused in the clause being typed: WHERE / GROUP BY / HAVING get an alias as its expression
+        /// ("amount" inserts "price * quantity", which is what those clauses need), ORDER BY gets the alias itself;
+        /// GROUP BY also offers every non-aggregate item at once and skips the ones already listed.
+        /// </summary>
+        private void AddSelectItems(CompletionContext ctx, List<CompletionItem> items, HashSet<string> seen)
+        {
+            if (ctx.SelectClause == null || ctx.SelectItems.Count == 0) return;
+            string Wrap(SelectItem s) => s.HasOperator && ctx.AfterArithmetic ? "(" + s.Expression + ")" : s.Expression;
+            var multi = ctx.TablesInScope.Count(r => r.ColumnNames.Any()) > 1;
+
+            switch (ctx.SelectClause)
+            {
+                case "ORDER BY":
+                    foreach (var s in ctx.SelectItems.Where(s => s.HasAlias))
+                        if (seen.Add(s.Name))
+                            items.Add(new CompletionItem(s.Name, Quote(s.Name), CompletionItemKind.Alias, "select-list alias of " + s.Expression) { Priority = -1 });
+                    break;
+
+                case "GROUP BY":
+                    var groupable = ctx.SelectItems.Where(s => !s.IsAggregate && !ctx.ListedInClause.Contains(s.Expression)).ToList();
+                    if (groupable.Count > 1)
+                    {
+                        var all = string.Join(", ", groupable.Select(s => s.Expression));
+                        items.Add(new CompletionItem("(select columns)", all, CompletionItemKind.Snippet,
+                            "every non-aggregate item of the select list: " + all) { Priority = -3 });
+                    }
+                    foreach (var s in groupable)
+                    {
+                        var display = s.HasAlias ? s.Name : s.Expression;
+                        if (!seen.Add(display)) continue;
+                        items.Add(new CompletionItem(display, s.Expression, s.HasAlias ? CompletionItemKind.Alias : CompletionItemKind.Column,
+                            s.HasAlias ? "select-list expression: " + s.Expression : "select-list column") { Priority = -2 });
+                    }
+                    break;
+
+                default: // WHERE, HAVING
+                    foreach (var s in ctx.SelectItems)
+                    {
+                        if (!s.HasAlias || s.IsAggregate && ctx.SelectClause != "HAVING") continue;
+                        // "c.Name AS Name": the column itself is already in the list.
+                        if (s.IsSimpleColumn && (Ci.Equals(s.Expression, s.Name) || !multi && s.Expression.EndsWith("." + s.Name, StringComparison.OrdinalIgnoreCase)))
+                            continue;
+                        if (!seen.Add(s.Name)) continue;
+                        items.Add(new CompletionItem(s.Name, Wrap(s), CompletionItemKind.Alias, "select-list expression: " + s.Expression) { Priority = -1 });
+                    }
+                    break;
+            }
+        }
+
+        private static bool IsKeyColumn(TableRef table, string column, DatabaseSchema schema)
+        {
+            if (JoinConditions.IsKeyLike(column)) return true;
+            var o = table.Object;
+            if (o == null) return false;
+            if (o.Indexes.Any(ix => (ix.IsPrimaryKey || ix.IsUnique) && ix.KeyColumns.Contains(column, Ci))) return true;
+            return schema != null && schema.ForeignKeys.Any(fk =>
+                Ci.Equals(fk.FromSchema, o.Schema) && Ci.Equals(fk.FromTable, o.Name) && fk.FromColumns.Contains(column, Ci)
+                || Ci.Equals(fk.ToSchema, o.Schema) && Ci.Equals(fk.ToTable, o.Name) && fk.ToColumns.Contains(column, Ci));
         }
 
         private void AddInsertColumns(CompletionContext ctx, List<CompletionItem> items)
@@ -395,10 +553,13 @@ namespace SqlSense.Core.Completion
                         ?? ctx.TablesInScope.FirstOrDefault(t => Ci.Equals(t.Name, q[0]));
                 if (r != null && baseKind != ContextKind.TableSource && baseKind != ContextKind.Procedure && baseKind != ContextKind.ObjectName)
                 {
+                    if (ctx.IsJoinCondition) AddJoinConditions(ctx, schema, items, r);
                     foreach (var col in r.ColumnNames)
                     {
                         var dbCol = r.Object?.Columns.FirstOrDefault(c => Ci.Equals(c.Name, col));
-                        items.Add(new CompletionItem(col, Quote(col), CompletionItemKind.Column, dbCol?.Describe() ?? col) { Priority = dbCol?.Ordinal ?? 0 });
+                        var item = new CompletionItem(col, Quote(col), CompletionItemKind.Column, dbCol?.Describe() ?? col);
+                        item.Priority = ColumnPriority(ctx, schema, r, col, dbCol?.Ordinal ?? 0, item);
+                        items.Add(item);
                     }
                     return;
                 }
