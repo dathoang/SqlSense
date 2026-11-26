@@ -288,8 +288,8 @@
     },
     "sqlSense.formatting.ddlParenStyle": {
       "type": "string",
-      "title": "CREATE TABLE parentheses",
-      "description": "Expanded split: '(' ends the line and ')' gets its own line. Expanded to statement: '(' also gets its own line.",
+      "title": "CREATE TABLE / INSERT parentheses",
+      "description": "CREATE TABLE column lists and wrapped INSERT column / VALUES lists. Expanded split: '(' ends the line and ')' gets its own line. Expanded to statement: '(' also gets its own line.",
       "default": "ExpandedSplit",
       "enum": [ "ExpandedSplit", "ExpandedToStatement" ],
       "enumItemLabels": [ "Expanded split", "Expanded to statement" ],
@@ -310,6 +310,13 @@
       "enum": [ "Never", "Always", "IfMultipleItems" ],
       "enumItemLabels": [ "Never", "Always", "If multiple items" ],
       "migration": { "pass": { "input": { "store": "VsUserSettingsRegistry", "path": "DialogPage\\SqlSense.Settings.OptionsPage\\ConstraintColumnsOnNewLines" }, "mode": "oneTimeFromLegacy" } }
+    },
+    "sqlSense.formatting.insertColumnsLongerThan": {
+      "type": "integer",
+      "title": "Wrap INSERT column lists longer than",
+      "description": "When 'INSERT INTO table (columns)' is longer than this many characters, the column list is filled line by line up to this width, and a single VALUES row or the INSERT … SELECT list breaks after the same columns. Commas follow 'Leading commas'. Also used by the column list generated when you pick a table after INSERT. 0 = never wrap, 1 = one column per line.",
+      "default": 80,
+      "minimum": 0
     },
     "sqlSense.formatting.alignAliases": {
       "type": "boolean",

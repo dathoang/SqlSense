@@ -192,6 +192,30 @@ namespace SqlSense.Core.Tests
         }
 
         [Fact]
+        public void Long_generated_insert_is_wrapped_like_the_formatter()
+        {
+            _engine.Format = new Formatting.FormatOptions { WrapInsertColumnsLongerThan = 20 };
+            var r = Complete("  INSERT INTO Custom|");
+            var expected =
+                "dbo.Customers (\n" +
+                "      Name, Email\n" +
+                "  )\n" +
+                "  VALUES (\n" +
+                "      N'', ''\n" +
+                "  )";
+            Assert.Equal(expected, r.Items[0].InsertText);
+            Assert.Equal(expected.IndexOf("N''"), r.Items[0].CaretOffset);
+
+            // Narrow: one per line, with the configured paren style and leading commas.
+            _engine.Format.WrapInsertColumnsLongerThan = 8;
+            _engine.Format.DdlParenStyle = Formatting.ParenthesisStyle.ExpandedToStatement;
+            _engine.Format.LeadingCommas = true;
+            Assert.Equal(
+                "dbo.Customers\n  (\n      Name\n    , Email\n  )\n  VALUES\n  (\n      N''\n    , ''\n  )",
+                Complete("  INSERT INTO Custom|").Items[0].InsertText);
+        }
+
+        [Fact]
         public void Insert_column_list_offers_all_columns()
         {
             var r = Complete("INSERT INTO dbo.Customers (|");

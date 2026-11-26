@@ -196,6 +196,7 @@ namespace SqlSense.Core.Formatting
             public int WhenColumn;
             public bool FirstWhenInline;
             public bool SeenWhen;
+            public bool IsInsert;        // ColumnList of an INSERT column list or VALUES row
 
             public bool IsStatementLevel => Kind == FrameKind.Root || Kind == FrameKind.Block || Kind == FrameKind.Subquery;
         }
@@ -254,7 +255,64 @@ namespace SqlSense.Core.Formatting
                 _markersAllowed = (o.AlignAliases || o.AlignComments) && !sql.Any(IsMarker);
                 for (var i = 0; i < _sig.Count; i++) _sigIndex[_sig[i]] = i;
                 foreach (var (start, _) in StatementAnalysis.SplitStatements(_sig)) _statementStarts.Add(start);
+                if (o.WrapInsertColumnsLongerThan > 0)
+                    foreach (var shape in InsertPairs.Shapes(_sig))
+                        PlanInsert(shape, o.WrapInsertColumnsLongerThan);
             }
+
+            /// <summary>Opening parentheses of INSERT column lists (and their single VALUES row) that are wrapped.</summary>
+            private readonly HashSet<int> _insertWraps = new HashSet<int>();
+
+            /// <summary>Commas of wrapped INSERT lists: those in <see cref="_breakCommas"/> end a line, the others don't.</summary>
+            private readonly HashSet<int> _packedCommas = new HashSet<int>();
+            private readonly HashSet<int> _breakCommas = new HashSet<int>();
+
+            /// <summary>Select lists of INSERT … SELECT laid out by <see cref="PlanInsert"/> (no alias alignment there).</summary>
+            private readonly List<(int First, int Last)> _packedSelects = new List<(int, int)>();
+
+            /// <summary>
+            /// A long INSERT column list is filled line by line up to <paramref name="width"/> characters; its single
+            /// VALUES row or SELECT list breaks after the same item positions, so line n of values matches line n of columns.
+            /// </summary>
+            private void PlanInsert(InsertPairs.Shape shape, int width)
+            {
+                var cols = shape.Columns;
+                if (cols.Count < 2 || cols.Any(c => c.First < 0) || Measure(shape.Insert, shape.Close) <= width) return;
+
+                var room = Math.Max(1, width - _o.IndentSize);
+                var breaks = new HashSet<int>(); // item positions that start a new line
+                long line = -1;
+                for (var n = 0; n < cols.Count; n++)
+                {
+                    var len = (long)Measure(cols[n].First, cols[n].Last);
+                    if (line >= 0 && line + 2 + len <= room) line += 2 + len;
+                    else
+                    {
+                        if (n > 0) breaks.Add(n);
+                        line = len;
+                    }
+                }
+
+                _insertWraps.Add(shape.Open);
+                MarkCommas(cols, breaks);
+                if (shape.Source == null || shape.Source.Count < 2 || shape.Source.Any(c => c.First < 0)) return;
+                if (shape.ValuesOpen >= 0) _insertWraps.Add(shape.ValuesOpen);
+                else _packedSelects.Add((shape.Source[0].First, shape.Source[shape.Source.Count - 1].Last));
+                MarkCommas(shape.Source, breaks);
+            }
+
+            private void MarkCommas(List<(int First, int Last)> items, HashSet<int> breaks)
+            {
+                for (var n = 1; n < items.Count; n++)
+                {
+                    var comma = items[n - 1].Last + 1;
+                    if (comma >= _sig.Count || _sig[comma].Text != ",") continue;
+                    _packedCommas.Add(comma);
+                    if (breaks.Contains(n)) _breakCommas.Add(comma);
+                }
+            }
+
+            private bool InPackedSelect(int s) => _packedSelects.Any(r => s >= r.First && s <= r.Last);
 
             public string Execute()
             {
@@ -421,7 +479,7 @@ namespace SqlSense.Core.Formatting
                 }
 
                 // ----- CREATE TABLE column constraints -----
-                if (top.Kind == FrameKind.ColumnList && _o.DdlConstraintsOnNewLines && t.Kind == TokenKind.Keyword && StartsColumnConstraint(s))
+                if (top.Kind == FrameKind.ColumnList && !top.IsInsert && _o.DdlConstraintsOnNewLines && t.Kind == TokenKind.Keyword && StartsColumnConstraint(s))
                 {
                     NewLineAt(top.Indent + _o.IndentSize, false);
                     Write(Case(t, s));
@@ -434,7 +492,7 @@ namespace SqlSense.Core.Formatting
 
                 if (t.IsWord && u == "BETWEEN") top.InBetween = true;
 
-                if (_o.AlignAliases && IsSelectAlias(t, s, top)) Mark(AliasMark, top.AlignGroup);
+                if (_o.AlignAliases && !InPackedSelect(s) && IsSelectAlias(t, s, top)) Mark(AliasMark, top.AlignGroup);
                 SpaceIfNeeded(t, s);
                 Write(Case(t, s));
                 Done(t);
@@ -656,7 +714,9 @@ namespace SqlSense.Core.Formatting
                 var prev = Sig(s - 1);
                 var isSubquery = next != null && (next.Is("SELECT") || next.Is("WITH") && Sig(s + 2) != null && Sig(s + 2).IsName);
                 var isTableBody = !isSubquery && IsColumnDefinitionList(s);
-                var isColumnList = isTableBody || !isSubquery && Top.Kind == FrameKind.ColumnList && WrapConstraintColumns(s);
+                var isInsertList = !isSubquery && !InCompact && _insertWraps.Contains(s);
+                var isColumnList = isTableBody || isInsertList
+                                   || !isSubquery && Top.Kind == FrameKind.ColumnList && !Top.IsInsert && WrapConstraintColumns(s);
                 if (!InCompact && (isSubquery || isTableBody))
                 {
                     var limit = isSubquery ? _o.CollapseSubqueriesShorterThan : _o.CollapseDdlShorterThan;
@@ -692,6 +752,7 @@ namespace SqlSense.Core.Formatting
                         OpenLineIndent = lineIndent,
                         AwaitStatement = false,
                         AlignGroup = ++_groups,
+                        IsInsert = isInsertList,
                     });
                     NewLineAt(lineIndent + _o.IndentSize, false);
                 }
@@ -727,13 +788,22 @@ namespace SqlSense.Core.Formatting
             private void Comma(SqlToken t, int s)
             {
                 var top = Top;
+                // A wrapped INSERT list keeps several items per line and breaks only where it was planned to.
+                var packed = _packedCommas.Contains(s) && !_breakCommas.Contains(s);
                 if (top.Kind == FrameKind.ColumnList)
                 {
-                    PlaceComma(top.Indent);
+                    if (packed) Write(",");
+                    else PlaceComma(top.Indent);
                     Done(t);
                     return;
                 }
-                if (top.IsStatementLevel && _o.OneItemPerLine && top.Clause != null && ListClauses.Contains(top.Clause) && top.ItemColumn > 0)
+                if (top.IsStatementLevel && _breakCommas.Contains(s) && top.ItemColumn > 0)
+                {
+                    PlaceComma(top.ItemColumn);
+                    Done(t);
+                    return;
+                }
+                if (top.IsStatementLevel && _o.OneItemPerLine && !packed && top.Clause != null && ListClauses.Contains(top.Clause) && top.ItemColumn > 0)
                 {
                     PlaceComma(top.ItemColumn);
                     Done(t);

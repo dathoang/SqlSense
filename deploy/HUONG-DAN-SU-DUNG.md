@@ -196,6 +196,20 @@ EXEC usp_get⇥
 EXEC dbo.usp_GetOrders @CustomerID = 0, @From = SYSDATETIME()
 ```
 
+Bảng ở database khác hoặc linked server cũng được: `INSERT INTO DbA.dbo.⇥` chọn bảng là có danh sách cột và
+`VALUES`. Danh sách dài (dòng `INSERT INTO … (…)` vượt 80 ký tự) được ngắt dòng giống khi định dạng (xem 3.3):
+
+```sql
+INSERT INTO DbA.dbo.CustomerHistory (
+    CustomerID, FirstName, LastName, Email, Phone, Address, City, Country,
+    CreatedAt, CreatedBy
+)
+VALUES (
+    0, N'', N'', '', '', N'', N'', N'',
+    SYSDATETIME(), N''
+)
+```
+
 Khi con trỏ nằm trên một cột trong danh sách cột của INSERT, giá trị tương ứng trong `VALUES` được tô sáng (và
 ngược lại) — tiện kiểm tra INSERT dài. Màu đổi ở Tools › Options › Environment › Fonts and Colors ›
 *SqlSense INSERT column/value*.
@@ -402,7 +416,23 @@ giữa các câu lệnh được giữ nguyên. Luôn có thể **Ctrl+Z** để
 
 Tools › Options › **SqlSense › Formatting**: kích thước thụt lề, chữ hoa/thường cho keyword / hàm / kiểu dữ liệu /
 `@@ROWCOUNT`, dấu phẩy đầu dòng, mỗi cột một dòng, xuống dòng trước `AND`/`OR`, thụt JOIN, vị trí `WHEN` đầu tiên,
-kiểu ngoặc của subquery và `CREATE TABLE`, căn alias / comment, giữ câu ngắn trên một dòng (*Collapse short code*), …
+kiểu ngoặc của subquery và `CREATE TABLE` / `INSERT`, căn alias / comment, giữ câu ngắn trên một dòng (*Collapse short code*), …
+
+**Danh sách cột của INSERT:** khi dòng `INSERT INTO bảng (cột, …)` dài hơn 80 ký tự (tuỳ chọn *Wrap INSERT column
+lists longer than*; 0 = không bao giờ ngắt, 1 = mỗi cột một dòng), các cột được xếp kín từng dòng tới độ rộng đó.
+`VALUES` một dòng giá trị hoặc danh sách `SELECT` của `INSERT … SELECT` ngắt sau đúng các cột ấy, nên dòng thứ n của
+giá trị khớp dòng thứ n của cột. `VALUES` nhiều dòng giữ mỗi dòng giá trị trên một dòng. Kiểu ngoặc theo
+*CREATE TABLE / INSERT parentheses*, dấu phẩy đầu hay cuối dòng theo *Leading commas*:
+
+```sql
+INSERT INTO tblA (
+    col1, col2, col3, col4, col5
+  , col21, col22, col23, col24, col25
+)
+SELECT col1, col2, col3, col4, col5
+     , col21, col22, col23, col24, col25
+FROM tblB
+```
 
 **Thống nhất style cho cả team:** export style từ SQL Prompt (file `.json`) rồi mỗi người chạy
 **Tools › SqlSense › Import SQL Prompt Style...**. Hộp thoại sau khi import liệt kê số thiết lập đã áp dụng và

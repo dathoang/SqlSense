@@ -169,6 +169,7 @@ namespace SqlSense.Settings
             DdlParenStyle = GetEnum(Formatting + "ddlParenStyle", ParenthesisStyle.ExpandedSplit),
             DdlConstraintsOnNewLines = Get(Formatting + "ddlConstraintsOnNewLines", false),
             ConstraintColumnsOnNewLines = GetEnum(Formatting + "constraintColumnsOnNewLines", ListWrap.Never),
+            WrapInsertColumnsLongerThan = Math.Max(0, Get(Formatting + "insertColumnsLongerThan", 80)),
             AlignAliases = Get(Formatting + "alignAliases", false),
             AlignComments = Get(Formatting + "alignComments", false),
             AlignMultilineComments = Get(Formatting + "alignMultilineComments", false),
@@ -200,6 +201,7 @@ namespace SqlSense.Settings
             writer.EnqueueChange(Formatting + "ddlParenStyle", o.DdlParenStyle.ToString());
             writer.EnqueueChange(Formatting + "ddlConstraintsOnNewLines", o.DdlConstraintsOnNewLines);
             writer.EnqueueChange(Formatting + "constraintColumnsOnNewLines", o.ConstraintColumnsOnNewLines.ToString());
+            writer.EnqueueChange(Formatting + "insertColumnsLongerThan", o.WrapInsertColumnsLongerThan);
             writer.EnqueueChange(Formatting + "alignAliases", o.AlignAliases);
             writer.EnqueueChange(Formatting + "alignComments", o.AlignComments);
             writer.EnqueueChange(Formatting + "alignMultilineComments", o.AlignMultilineComments);

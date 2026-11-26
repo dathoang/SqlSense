@@ -167,6 +167,9 @@ namespace SqlSense.Core.Tests
         [InlineData("if @@ROWCOUNT = 0 and @@trancount > 0 select case x when 1 then 'a' when 2 then 'b' end, case when y = 1 then 'c' else 'd' end from t")]
         [InlineData("select a /* one\n     two\n     three */ from t\ngo\n\n\nselect 1")]
         [InlineData("alter table dbo.T alter column Code varchar(10) not null; alter table dbo.T drop constraint DF_T, column Old; alter table dbo.T drop column if exists A, B")]
+        [InlineData(LongInsert)]
+        [InlineData("insert into dbo.SomeTable (col1, col2, col3, col4, col5, col21, col22, col23, col24, col25, col26, col27) select top (5) a.col1 as c1, col2, col3 x, col4, col5, col21, col22, col23, col24, col25, col26, col27 from tblB a where a.col1 = 1")]
+        [InlineData("begin insert into dbo.SomeRatherLongTableName (FirstColumn, SecondColumn, ThirdColumn) values (case when @a = 1 then null else default end, (select max(x) from t), 3) -- note\nend")]
         public void Formatting_never_changes_tokens_and_is_idempotent(string sql)
         {
             foreach (var f in new[] { _f, new SqlFormatter(PromptLike()) })
@@ -238,6 +241,81 @@ namespace SqlSense.Core.Tests
                 "    )\n" +
                 ");";
             Assert.Equal(expected, Fmt(o, "create table dbo.T (Id int not null constraint PK_T primary key, Ref int null references dbo.U (Id), constraint FK_T foreign key (Ref, Id) references dbo.U (A, B));"));
+        }
+
+        private const string LongInsert =
+            "insert into Archive.dbo.CustomerHistory with (tablock) (CustomerID, FirstName, LastName, Email, CreatedAt) " +
+            "values (1, N'Ann', N'Lee', lower(@email), getdate());";
+
+        [Fact]
+        public void Long_insert_column_list_is_filled_line_by_line()
+        {
+            var expected =
+                "INSERT INTO Archive.dbo.CustomerHistory WITH (TABLOCK) (\n" +
+                "    CustomerID, FirstName, LastName, Email, CreatedAt\n" +
+                ")\n" +
+                "VALUES (\n" +
+                "    1, N'Ann', N'Lee', LOWER(@email), GETDATE()\n" +
+                ");";
+            Assert.Equal(expected, Fmt(LongInsert));
+        }
+
+        [Fact]
+        public void Values_and_select_break_after_the_same_columns()
+        {
+            var o = new FormatOptions { NewLine = "\n", WrapInsertColumnsLongerThan = 38 };
+            Assert.Equal(
+                "INSERT INTO Archive.dbo.CustomerHistory WITH (TABLOCK) (\n" +
+                "    CustomerID, FirstName, LastName,\n" +
+                "    Email, CreatedAt\n" +
+                ")\n" +
+                "VALUES (\n" +
+                "    1, N'Ann', N'Lee',\n" +
+                "    LOWER(@email), GETDATE()\n" +
+                ");",
+                Fmt(o, LongInsert));
+            Assert.Equal(
+                "INSERT INTO tblA (\n" +
+                "    col1, col2, col3, col4, col5,\n" +
+                "    col21, col22, col23, col24, col25\n" +
+                ")\n" +
+                "SELECT col1, col2, col3, col4, col5,\n" +
+                "       col21, col22, col23, col24, col25\n" +
+                "FROM tblB",
+                Fmt(o, "insert into tblA (col1, col2, col3, col4, col5, col21, col22, col23, col24, col25) select col1, col2, col3, col4, col5, col21, col22, col23, col24, col25 from tblB"));
+        }
+
+        [Fact]
+        public void Wrapped_insert_follows_paren_style_and_leading_commas()
+        {
+            var o = new FormatOptions { NewLine = "\n", DdlParenStyle = ParenthesisStyle.ExpandedToStatement, LeadingCommas = true, WrapInsertColumnsLongerThan = 38 };
+            var expected =
+                "INSERT INTO tblA\n" +
+                "(\n" +
+                "    col1, col2, col3, col4, col5\n" +
+                "  , col21, col22, col23, col24, col25\n" +
+                ")\n" +
+                "SELECT col1, col2, col3, col4, col5\n" +
+                "     , col21, col22, col23, col24, col25\n" +
+                "FROM tblB";
+            Assert.Equal(expected, Fmt(o, "insert into tblA (col1, col2, col3, col4, col5, col21, col22, col23, col24, col25) select col1, col2, col3, col4, col5, col21, col22, col23, col24, col25 from tblB"));
+        }
+
+        [Fact]
+        public void Wrapped_insert_keeps_several_value_rows_on_their_lines()
+        {
+            var o = new FormatOptions { NewLine = "\n", WrapInsertColumnsLongerThan = 15 };
+            Assert.Equal(
+                "INSERT INTO dbo.T (\n    a, b\n)\nVALUES (1, NULL),\n       (2, DEFAULT);",
+                Fmt(o, "insert into dbo.T (a, b) values (1, null), (2, default);"));
+            // Width 1: one column per line.
+            Assert.Equal(
+                "INSERT dbo.T (\n    a,\n    b\n)\nSELECT x,\n       y\nFROM u",
+                Fmt(new FormatOptions { NewLine = "\n", WrapInsertColumnsLongerThan = 1 }, "insert dbo.T (a, b) select x, y from u"));
+            // One column, or the option off: stays on one line.
+            Assert.Equal("INSERT INTO dbo.LongTableName (a)\nVALUES (1)", Fmt(o, "insert into dbo.LongTableName (a) values (1)"));
+            Assert.Equal("INSERT INTO dbo.T (a, b)\nVALUES (1, 2)",
+                Fmt(new FormatOptions { NewLine = "\n", WrapInsertColumnsLongerThan = 0 }, "insert into dbo.T (a, b) values (1, 2)"));
         }
 
         [Fact]

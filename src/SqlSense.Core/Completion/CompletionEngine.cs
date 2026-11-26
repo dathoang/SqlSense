@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using SqlSense.Core.Analysis;
+using SqlSense.Core.Formatting;
 using SqlSense.Core.Language;
 using SqlSense.Core.Schema;
 
@@ -37,6 +38,9 @@ namespace SqlSense.Core.Completion
         public CompletionOptions Options { get; set; }
         public SnippetLibrary Snippets { get; set; }
         public string NewLine { get; set; } = "\r\n";
+
+        /// <summary>Formatter settings that generated code follows (INSERT column lists); null = defaults.</summary>
+        public FormatOptions Format { get; set; }
 
         /// <summary>Clock for generated backup file names.</summary>
         public Func<DateTime> Now { get; set; } = () => DateTime.Now;
@@ -294,24 +298,20 @@ namespace SqlSense.Core.Completion
             string description, int priority, List<string> columns, DbObject obj = null)
         {
             var item = new CompletionItem(display, insert, kind, description) { Priority = priority };
-            if (ctx.Kind != ContextKind.TableSource || ctx.HasQualifier && ctx.Qualifier.Count > 1) return item;
+            if (ctx.Kind != ContextKind.TableSource) return item;
 
+            // Any qualifier works here, including another database ("INSERT OtherDb.dbo.|").
             if (ctx.IsInsertTarget && Options.InsertGeneratesColumns && obj != null)
             {
                 var cols = obj.Columns.Where(c => !c.IsIdentity && !c.IsComputed && !Ci.Equals(c.DataType, "timestamp") && !Ci.Equals(c.DataType, "rowversion")).ToList();
                 if (cols.Count > 0)
                 {
-                    var sb = new StringBuilder(insert);
-                    sb.Append(" (").Append(string.Join(", ", cols.Select(c => Quote(c.Name)))).Append(")");
-                    sb.Append(NewLine).Append(ctx.LineIndent).Append(Kw("VALUES")).Append(" (");
-                    var valuesStart = sb.Length;
-                    sb.Append(string.Join(", ", cols.Select(c => DefaultValue(c.DataType))));
-                    sb.Append(")");
-                    item.InsertText = sb.ToString();
-                    item.CaretOffset = valuesStart;
+                    item.InsertText = InsertTemplate(ctx, insert, cols, out var caret);
+                    item.CaretOffset = caret;
                 }
                 return item;
             }
+            if (ctx.HasQualifier && ctx.Qualifier.Count > 1) return item;
 
             if (ctx.AllowsAlias && Options.AutoAlias)
             {
@@ -320,6 +320,68 @@ namespace SqlSense.Core.Completion
                 item.InsertText = insertText + (Options.AliasWithAs ? " " + Kw("AS") + " " : " ") + alias;
             }
             return item;
+        }
+
+        /// <summary>
+        /// "target (columns) ⏎ VALUES (defaults)", laid out like the formatter would: on one line each, or filled line
+        /// by line when the INSERT line is longer than <see cref="FormatOptions.WrapInsertColumnsLongerThan"/>.
+        /// </summary>
+        private string InsertTemplate(CompletionContext ctx, string target, List<DbColumn> cols, out int caret)
+        {
+            var f = Format ?? new FormatOptions();
+            var names = cols.Select(c => Quote(c.Name)).ToList();
+            var values = cols.Select(c => DefaultValue(c.DataType)).ToList();
+            var indent = ctx.LineIndent ?? string.Empty;
+            var sb = new StringBuilder(target);
+
+            var header = "INSERT INTO ".Length + target.Length + 2 + names.Sum(n => n.Length) + 2 * (names.Count - 1) + 1;
+            if (f.WrapInsertColumnsLongerThan <= 0 || names.Count < 2 || header <= f.WrapInsertColumnsLongerThan)
+            {
+                sb.Append(" (").Append(string.Join(", ", names)).Append(")");
+                sb.Append(NewLine).Append(indent).Append(Kw("VALUES")).Append(" (");
+                caret = sb.Length;
+                sb.Append(string.Join(", ", values)).Append(")");
+                return sb.ToString();
+            }
+
+            // Fill each line up to the width; the values break after the same columns, as the formatter does.
+            var size = Math.Max(1, f.IndentSize);
+            var room = Math.Max(1, f.WrapInsertColumnsLongerThan - size);
+            var breaks = new HashSet<int>();
+            var line = -1;
+            for (var n = 0; n < names.Count; n++)
+            {
+                if (line >= 0 && line + 2 + names[n].Length <= room) line += 2 + names[n].Length;
+                else
+                {
+                    if (n > 0) breaks.Add(n);
+                    line = names[n].Length;
+                }
+            }
+
+            var inner = indent + new string(' ', size);
+            var commaLead = inner.Substring(0, Math.Max(0, inner.Length - 2)) + ", ";
+            var ownLine = f.DdlParenStyle == ParenthesisStyle.ExpandedToStatement;
+            void List(List<string> items, out int firstItem)
+            {
+                sb.Append(ownLine ? NewLine + indent + "(" : " (").Append(NewLine).Append(inner);
+                firstItem = sb.Length;
+                for (var i = 0; i < items.Count; i++)
+                {
+                    if (i > 0 && breaks.Contains(i))
+                    {
+                        if (f.LeadingCommas) sb.Append(NewLine).Append(commaLead);
+                        else sb.Append(",").Append(NewLine).Append(inner);
+                    }
+                    else if (i > 0) sb.Append(", ");
+                    sb.Append(items[i]);
+                }
+                sb.Append(NewLine).Append(indent).Append(")");
+            }
+            List(names, out _);
+            sb.Append(NewLine).Append(indent).Append(Kw("VALUES"));
+            List(values, out caret);
+            return sb.ToString();
         }
 
         private void AddExpression(CompletionContext ctx, DatabaseSchema schema, List<CompletionItem> items)

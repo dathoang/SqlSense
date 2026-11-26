@@ -174,7 +174,18 @@ namespace SqlSense.Core.Formatting
                     Use("parentheses.collapseParenthesesShorterThan", "already SqlSense's layout");
             }
 
-            Same("insertStatements.columns.placeSubsequentColumnsOnNewLines", "never");
+            if (values.TryGetValue("insertStatements.columns.placeSubsequentColumnsOnNewLines", out var ic) && ic is string insertColumns)
+            {
+                int? limit = insertColumns.Equals("never", StringComparison.OrdinalIgnoreCase) ? 0
+                    : insertColumns.Equals("always", StringComparison.OrdinalIgnoreCase) ? 1
+                    : insertColumns.IndexOf("longer", StringComparison.OrdinalIgnoreCase) >= 0 ? (o.WrapInsertColumnsLongerThan > 0 ? o.WrapInsertColumnsLongerThan : 80)
+                    : (int?)null;
+                if (limit != null)
+                {
+                    o.WrapInsertColumnsLongerThan = limit.Value;
+                    Use("insertStatements.columns.placeSubsequentColumnsOnNewLines", "Wrap INSERT column lists longer than = " + limit.Value);
+                }
+            }
             Same("insertStatements.values.parenthesisStyle", "compactIndented", "compactSimple");
             Same("insertStatements.values.indentContents", "true");
 

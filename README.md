@@ -48,7 +48,9 @@ binaries are used. The parser is Microsoft's open-source `Microsoft.SqlServer.Tr
   and inserts its expression (wrapped in parentheses after an arithmetic operator); `GROUP BY` also offers
   `(select columns)` = every non-aggregate item not yet listed; `HAVING` includes aggregates; `ORDER BY` offers the
   aliases themselves. The list opens right after `WHERE `, `GROUP BY `, `ORDER BY `, `HAVING `.
-- `INSERT INTO` + table inserts the column list (no identity/computed columns) and a typed `VALUES` template.
+- `INSERT INTO` + table inserts the column list (no identity/computed columns) and a typed `VALUES` template, also for
+  tables in another database or on a linked server (`INSERT INTO OtherDb.dbo.`). Long lists are wrapped like the
+  formatter writes them.
 - `EXEC` + procedure inserts its parameters with typed defaults.
 - `ALTER PROCEDURE` / `FUNCTION` / `VIEW` / `TRIGGER` lists objects of that kind (also after `DROP … [IF EXISTS]` and
   `CREATE OR ALTER`); in an empty batch, picking one after `ALTER` loads its definition in the background and replaces
@@ -78,6 +80,9 @@ binaries are used. The parser is Microsoft's open-source `Microsoft.SqlServer.Tr
 **Formatter** (Ctrl+K, Ctrl+Y, or Edit › Format Document / Format Selection)
 - Clause layout, aligned select lists, JOINs under FROM, `AND`/`OR` breaks, CASE blocks, BEGIN/END, IF/ELSE,
   TRY/CATCH, subqueries, CTEs, MERGE, CREATE TABLE column lists; keyword/function/data type casing.
+- INSERT column lists longer than 80 characters (option *Wrap INSERT column lists longer than*) are filled line by line
+  up to that width; a single `VALUES` row or the `INSERT … SELECT` list breaks after the same columns, so line n of
+  values matches line n of columns. Commas go first or last as configured; several `VALUES` rows stay one per line.
 - Keeps comments and blank lines between statements.
 - **Safe by construction:** after formatting, the token stream is compared with the original. If anything other than
   whitespace or word case would change, nothing is applied and the reason is shown in the status bar.

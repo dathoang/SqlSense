@@ -102,6 +102,23 @@ namespace SqlSense.Core.Tests
             Assert.Equal("OldOrders", Complete("SELECT * FROM Archive.hist.|").Items.Single().InsertText);
         }
 
+        [Theory]
+        [InlineData("INSERT Archive.hist.|", "OldOrders (OldOrderID)\nVALUES (0)")]
+        [InlineData("INSERT INTO Archive.hist.Old|", "OldOrders (OldOrderID)\nVALUES (0)")]
+        [InlineData("INSERT INTO REMOTE.Sales2.dbo.|", "Invoices (InvoiceNo)\nVALUES ('')")]
+        public void Insert_into_another_database_generates_the_column_list(string sql, string expected)
+        {
+            var item = Complete(sql).Items.Single();
+            Assert.Equal(expected, item.InsertText);
+            Assert.Equal(expected.LastIndexOf('(') + 1, item.CaretOffset);
+        }
+
+        [Fact]
+        public void Insert_column_list_of_another_database_offers_its_columns()
+        {
+            Assert.Contains("OldOrderID", Names("INSERT INTO Archive.hist.OldOrders (|"));
+        }
+
         private static QuickInfo Hover(string textWithMouse)
         {
             var pos = textWithMouse.IndexOf('|');

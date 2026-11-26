@@ -83,6 +83,18 @@ namespace SqlSense.Core.Tests
             Assert.Equal(0, r.Options.CollapseStatementsShorterThan);
         }
 
+        [Theory]
+        [InlineData("never", 0)]
+        [InlineData("always", 1)]
+        [InlineData("ifLongerThanMaxLineLength", 80)]
+        public void Maps_insert_column_wrapping(string value, int expected)
+        {
+            var r = SqlPromptStyle.Import(@"{ ""insertStatements"": { ""columns"": { ""placeSubsequentColumnsOnNewLines"": """ + value + @""" } } }",
+                new FormatOptions());
+            Assert.Equal(expected, r.Options.WrapInsertColumnsLongerThan);
+            Assert.Empty(r.Ignored);
+        }
+
         [Fact]
         public void Invalid_json_is_rejected()
         {

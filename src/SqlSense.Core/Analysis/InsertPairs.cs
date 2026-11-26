@@ -53,6 +53,58 @@ namespace SqlSense.Core.Analysis
             return result;
         }
 
+        /// <summary>The layout-relevant parts of an INSERT with a column list.</summary>
+        internal sealed class Shape
+        {
+            public int Insert;
+            public int Open;
+            public int Close;
+            public List<(int First, int Last)> Columns;
+
+            /// <summary>"(" of the VALUES row when there is exactly one row, else -1.</summary>
+            public int ValuesOpen = -1;
+
+            /// <summary>Items of the single VALUES row or of the INSERT … SELECT select list; null otherwise.</summary>
+            public List<(int First, int Last)> Source;
+        }
+
+        /// <summary>Every INSERT with a column list in <paramref name="sig"/>.</summary>
+        internal static List<Shape> Shapes(List<SqlToken> sig)
+        {
+            var result = new List<Shape>();
+            foreach (var (start, end) in StatementAnalysis.SplitStatements(sig))
+            {
+                var insert = StatementAnalysis.FindWordAtDepth(sig, start, end, "INSERT");
+                if (insert < 0) continue;
+                var columns = ColumnList(sig, insert + 1, end);
+                if (columns == null) continue;
+                var shape = new Shape
+                {
+                    Insert = insert,
+                    Open = columns.Value.Open,
+                    Close = columns.Value.Close,
+                    Columns = SplitItems(sig, columns.Value.Open + 1, columns.Value.Close - 1),
+                };
+                var i = columns.Value.Close + 1;
+                if (i + 1 <= end && sig[i].Is("VALUES") && sig[i + 1].Text == "(")
+                {
+                    var close = StatementAnalysis.MatchingParen(sig, i + 1);
+                    if (close > 0 && close <= end && (close + 1 > end || sig[close + 1].Text != ","))
+                    {
+                        shape.ValuesOpen = i + 1;
+                        shape.Source = SplitItems(sig, i + 2, close - 1);
+                    }
+                }
+                else if (i <= end && sig[i].Is("SELECT"))
+                {
+                    var rows = SourceRows(sig, i, end);
+                    if (rows.Count == 1) shape.Source = rows[0];
+                }
+                result.Add(shape);
+            }
+            return result;
+        }
+
         /// <summary>The "( … )" column list after INSERT [TOP (n) [PERCENT]] [INTO] target [WITH (hints)].</summary>
         private static (int Open, int Close)? ColumnList(List<SqlToken> sig, int i, int end)
         {

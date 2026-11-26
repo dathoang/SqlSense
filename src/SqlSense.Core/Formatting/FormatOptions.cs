@@ -93,6 +93,13 @@ namespace SqlSense.Core.Formatting
         /// <summary>Columns of PRIMARY KEY / UNIQUE / REFERENCES / INDEX ( … ) inside CREATE TABLE go one per line.</summary>
         public ListWrap ConstraintColumnsOnNewLines { get; set; } = ListWrap.Never;
 
+        /// <summary>
+        /// When "INSERT INTO target (columns)" is longer than this, the column list is filled line by line up to this
+        /// width (0 = never wrap, 1 = one per line); a single VALUES row or the INSERT … SELECT list breaks after the
+        /// same columns. Parentheses follow <see cref="DdlParenStyle"/>, commas <see cref="LeadingCommas"/>.
+        /// </summary>
+        public int WrapInsertColumnsLongerThan { get; set; } = 80;
+
         /// <summary>Case of system functions such as @@ROWCOUNT.</summary>
         public KeywordCasing GlobalVariableCase { get; set; } = KeywordCasing.AsIs;
 
