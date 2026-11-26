@@ -603,8 +603,8 @@ Yêu cầu: Visual Studio 2022/2026 với workload **Visual Studio extension dev
 (để sinh tài liệu Word từ `deploy\HUONG-DAN-SU-DUNG.md`; lần đầu script tự chạy `npm ci` trong `deploy\tools`).
 
 ```powershell
-.\deploy\Build-Package.ps1 -Version 1.7.1           # test + rebuild + đóng gói
-.\deploy\Build-Package.ps1 -Version 1.7.1 -Install  # ... và cài luôn vào SSMS trên máy này
+.\deploy\Build-Package.ps1 -Version 1.8.0           # test + rebuild + đóng gói
+.\deploy\Build-Package.ps1 -Version 1.8.0 -Install  # ... và cài luôn vào SSMS trên máy này
 .\deploy\Build-Package.ps1 -SkipTests               # giữ nguyên phiên bản, bỏ qua unit test
 ```
 
