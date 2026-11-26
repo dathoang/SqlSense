@@ -1,26 +1,28 @@
 # Project site: https://dathoang.github.io/SqlSense/ (built by .github/workflows/pages.yml).
 # Two languages, one config each, sharing base.yml:
-#   mkdocs.yml     Vietnamese, site root      (guide: deploy/HUONG-DAN-SU-DUNG.md)
-#   mkdocs.en.yml  English, /en/              (guide: deploy/USER-GUIDE.md)
-# Build Vietnamese first: it cleans dist/site, the English build then fills dist/site/en.
-# Local preview: pip install -r website/requirements.txt; mkdocs serve -f website/mkdocs.yml (or mkdocs.en.yml)
+#   mkdocs.yml     English (default), site root   (guide: deploy/USER-GUIDE.md)
+#   mkdocs.vi.yml  Vietnamese, /vi/                (guide: deploy/HUONG-DAN-SU-DUNG.md)
+# Build English first: it cleans dist/site, the Vietnamese build then fills dist/site/vi.
+# assets/language.js sends first-time visitors whose browser prefers Vietnamese to /vi/ and remembers the choice.
+# Local preview: pip install -r website/requirements.txt; mkdocs serve -f website/mkdocs.yml (or mkdocs.vi.yml)
 # Not docs/: that folder holds private notes and is git-ignored.
 INHERIT: base.yml
 site_name: SqlSense
-site_description: Gợi ý T-SQL theo schema, tự hoàn thành và định dạng SQL an toàn cho SQL Server Management Studio 22.
-docs_dir: src/vi
+site_description: Schema-aware T-SQL suggestions, autocomplete and a safe SQL formatter for SQL Server Management Studio 22.
+docs_dir: src/en
 site_dir: ../dist/site
 
 watch:
-  - ../deploy/HUONG-DAN-SU-DUNG.md
+  - ../deploy/USER-GUIDE.md
   - assets
+  - overrides
 
 nav:
-  - Trang chủ: index.md
-  - Hướng dẫn sử dụng: huong-dan.md
+  - Home: index.md
+  - User guide: user-guide.md
 
 theme:
-  language: vi
+  language: en
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -28,15 +30,15 @@ theme:
       accent: blue
       toggle:
         icon: material/weather-night
-        name: Chế độ tối
+        name: Dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
       primary: indigo
       accent: blue
       toggle:
         icon: material/weather-sunny
-        name: Chế độ sáng
+        name: Light mode
 
 plugins:
   - search:
-      lang: [vi, en]
+      lang: en

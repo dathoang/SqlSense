@@ -1,4 +1,4 @@
-# Builds website/ (MkDocs Material, Vietnamese + English, user guides from deploy/) and publishes it to GitHub Pages:
+# Builds website/ (MkDocs Material, English + Vietnamese, user guides from deploy/) and publishes it to GitHub Pages:
 # https://dathoang.github.io/SqlSense/ . Needs Settings › Pages › Source: GitHub Actions.
 name: Pages
 
@@ -32,9 +32,9 @@ jobs:
           cache: pip
           cache-dependency-path: website/requirements.txt
       - run: pip install -r website/requirements.txt
-      # Vietnamese first: it cleans dist/site; the English site then goes to dist/site/en.
+      # English (default, site root) first: it cleans dist/site; the Vietnamese site then goes to dist/site/vi.
       - run: mkdocs build --strict -f website/mkdocs.yml
-      - run: mkdocs build --strict -f website/mkdocs.en.yml
+      - run: mkdocs build --strict -f website/mkdocs.vi.yml
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist/site

@@ -5,8 +5,8 @@ SqlSense là extension cho **SQL Server Management Studio 22** (x64): gợi ý T
 VS Code, xuất kết quả ra Excel /
 INSERT và tô màu cửa sổ truy vấn theo server/database.
 
-Bản online của tài liệu này (có tìm kiếm): <https://dathoang.github.io/SqlSense/huong-dan/>
-(tiếng Anh: <https://dathoang.github.io/SqlSense/en/user-guide/>)
+Bản online của tài liệu này (có tìm kiếm): <https://dathoang.github.io/SqlSense/vi/huong-dan/>
+(tiếng Anh: <https://dathoang.github.io/SqlSense/user-guide/>)
 
 ---
 

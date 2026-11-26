@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+
+{#- In <head>, so a first-visit redirect to the visitor's language happens before the page is drawn. -#}
+{% block extrahead %}
+  <script src="{{ 'assets/language.js' | url }}"></script>
+{% endblock %}

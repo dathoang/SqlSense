@@ -3,8 +3,8 @@
 An independent T-SQL productivity extension for **SQL Server Management Studio 22** (x64, VS 18 shell):
 schema-aware suggestions, autocomplete generators, snippets and a safe formatter.
 
-**Website and user guide: [English](https://dathoang.github.io/SqlSense/en/) ·
-[Tiếng Việt](https://dathoang.github.io/SqlSense/)** ·
+**Website and user guide: [English](https://dathoang.github.io/SqlSense/) ·
+[Tiếng Việt](https://dathoang.github.io/SqlSense/vi/)** ·
 **Download: [latest release](https://github.com/dathoang/SqlSense/releases/latest)**
 
 Its design follows the general architecture of Redgate SQL Prompt (an editor command filter in front of the SQL

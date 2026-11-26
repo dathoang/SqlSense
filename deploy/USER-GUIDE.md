@@ -4,8 +4,8 @@ SqlSense is an extension for **SQL Server Management Studio 22** (x64): schema-a
 (aliases, JOIN conditions, INSERT/EXEC, `SELECT *` expansion, snippets), safe SQL formatting, level-based code folding like
 VS Code, exporting results to Excel / INSERT, and colouring query windows by server/database.
 
-Online version of this guide (searchable): <https://dathoang.github.io/SqlSense/en/user-guide/>
-(Vietnamese: <https://dathoang.github.io/SqlSense/huong-dan/>)
+Online version of this guide (searchable): <https://dathoang.github.io/SqlSense/user-guide/>
+(Vietnamese: <https://dathoang.github.io/SqlSense/vi/huong-dan/>)
 
 ---
 

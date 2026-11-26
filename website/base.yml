@@ -12,6 +12,7 @@ hooks:
 
 theme:
   name: material
+  custom_dir: overrides   # main.html loads assets/language.js in <head>
   icon:
     logo: material/database-search
     repo: fontawesome/brands/github
@@ -38,18 +39,15 @@ markdown_extensions:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
-extra_javascript:
-  - assets/language.js
-
 extra:
-  # Language selector in the header. Vietnamese stays at the site root so existing links keep working.
+  # Language selector in the header. English is the default at the site root, Vietnamese under /vi/.
   alternate:
-    - name: Tiếng Việt
-      link: /SqlSense/
-      lang: vi
     - name: English
-      link: /SqlSense/en/
+      link: /SqlSense/
       lang: en
+    - name: Tiếng Việt
+      link: /SqlSense/vi/
+      lang: vi
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/dathoang/SqlSense

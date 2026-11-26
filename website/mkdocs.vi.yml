@@ -1,0 +1,38 @@
+# Vietnamese site, published under /vi/. See mkdocs.yml for the layout of the two languages.
+INHERIT: base.yml
+site_name: SqlSense
+site_description: Gợi ý T-SQL theo schema, tự hoàn thành và định dạng SQL an toàn cho SQL Server Management Studio 22.
+site_url: https://dathoang.github.io/SqlSense/vi/
+docs_dir: src/vi
+site_dir: ../dist/site/vi
+
+watch:
+  - ../deploy/HUONG-DAN-SU-DUNG.md
+  - assets
+  - overrides
+
+nav:
+  - Trang chủ: index.md
+  - Hướng dẫn sử dụng: huong-dan.md
+
+theme:
+  language: vi
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/weather-night
+        name: Chế độ tối
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/weather-sunny
+        name: Chế độ sáng
+
+plugins:
+  - search:
+      lang: [vi, en]

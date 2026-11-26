@@ -24,12 +24,14 @@ because of the Vietnamese messages). The user guide exists in two languages with
 `deploy\HUONG-DAN-SU-DUNG.md` (Vietnamese) and `deploy\USER-GUIDE.md` (English); update both with new features.
 The package carries the Vietnamese one as .docx, rendered by `deploy\tools\md-to-docx.js` (Node 22+, `docx` + `marked`, pinned in
 `deploy\tools\package.json`); it handles only the Markdown the guide uses, so check the .docx after adding new constructs.
-Website: `website/` (MkDocs Material, pinned in `website/requirements.txt`), Vietnamese at the root (`mkdocs.yml`,
-pages in `src/vi`) and English under `/en/` (`mkdocs.en.yml`, `src/en`), both INHERIT `base.yml`. `hooks.py` serves
-each language's guide from `deploy/`, adds `website/assets`, and fixes "đ" in heading anchors; `assets/language.js`
-points the language selector guide ↔ guide. Published to https://dathoang.github.io/SqlSense/ by
+Website: `website/` (MkDocs Material, pinned in `website/requirements.txt`), English (default) at the root
+(`mkdocs.yml`, pages in `src/en`) and Vietnamese under `/vi/` (`mkdocs.vi.yml`, `src/vi`), both INHERIT `base.yml`.
+`hooks.py` serves each language's guide from `deploy/`, adds `website/assets`, fixes "đ" in heading anchors and writes
+redirect pages for moved URLs (`/huong-dan/` is printed in released guides). `assets/language.js` (loaded in `<head>` by
+`overrides/main.html`) sends first-time visitors whose browser prefers Vietnamese to `/vi/`, remembers the selector
+choice, and points the selector guide ↔ guide. Published to https://dathoang.github.io/SqlSense/ by
 `.github/workflows/pages.yml` on push to main. Never use `docs/` for it (private, git-ignored). Check locally with
-`mkdocs build --strict -f website/mkdocs.yml` then `-f website/mkdocs.en.yml` (in that order: the first cleans dist/site).
+`mkdocs build --strict -f website/mkdocs.yml` then `-f website/mkdocs.vi.yml` (in that order: the first cleans dist/site).
 `Directory.Build.props` redirects bin/obj to `%TEMP%\ssb` only when the checkout path is over 100 chars; here they're normal.
 
 ## Layout
